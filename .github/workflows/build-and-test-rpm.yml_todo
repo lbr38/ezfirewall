@@ -59,6 +59,8 @@ jobs:
           mkdir -p $HOME/rpmbuild/SOURCES
           mkdir -p $HOME/rpmbuild/SPECS
           mkdir -p /opt/ezfirewall/src/
+          mkdir -p /opt/ezfirewall/sources/
+          mkdir -p /opt/ezfirewall/rules/
 
       - name: Copy files to include in the build
         run: |

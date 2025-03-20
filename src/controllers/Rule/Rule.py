@@ -6,20 +6,21 @@ from pathlib import Path
 import subprocess
 import yaml
 import glob
+import re
 from tabulate import tabulate
 
 # Import classes
 from src.controllers.Rule.Merge import Merge
-from src.controllers.Iptables.Iptables import Iptables
-from src.controllers.Iptables.Input import Input
+from src.controllers.Nftables.Nftables import Nftables
+from src.controllers.Nftables.Input import Input
 from src.controllers.Source import Source
 
 class Rule:
     def __init__(self):
         self.rules_dir = '/opt/ezfirewall/rules'
         self.mergeController = Merge()
-        self.iptablesController = Iptables()
-        self.iptablesInputController = Input()
+        self.nftablesController = Nftables()
+        self.nftablesInputController = Input()
         self.sourceController = Source()
 
         # Create rules directory if it does not exist
@@ -60,13 +61,8 @@ class Rule:
         print('\r ' + Fore.GREEN + '✔' + Style.RESET_ALL)
 
         #
-        # Apply the rules
+        # Print the rules
         #
-
-        # First, initialize (reset) iptables
-        # Only if it is not a dry run
-        if not dry_run:
-            self.iptablesController.initialize(config)
 
         # Loop through every rule files
         content = {}
@@ -100,19 +96,12 @@ class Rule:
                     exit(0)
 
         #
-        # Apply rules
+        # Build rules
         #
+        print(' ▪ Building rules', end = ' ')
 
         # In the rules file, loop through every interface to apply their rules
         for interface in content:
-            # Print an error if the ip version is not defined
-            if 'ip_version' not in content[interface]:
-                raise Exception('ip_version (v4 or v6) is not defined for interface ' + interface)
-            
-            # Check that the ip_version is valid
-            if content[interface]['ip_version'] not in ['v4', 'v6']:
-                raise Exception('ip_version must be either v4 or v6')
-            
             # Get the ip version
             ip_version = content[interface]['ip_version']
 
@@ -130,25 +119,47 @@ class Rule:
                             if allow_drop not in content[interface][input_output][rule_name]:
                                 continue
 
-                            # Check if every required key is present
-                            if 'port' not in content[interface][input_output][rule_name]:
-                                raise Exception("'port' key is missing in input rule " + rule_name + ' of interface ' + interface)
-                            if 'protocols' not in content[interface][input_output][rule_name]:
-                                raise Exception("'protocols' key is missing in input rule " + rule_name + ' of interface ' + interface)
+                            # Check if protocol key is present
+                            # if 'protocol' not in content[interface][input_output][rule_name]:
+                            #     raise Exception("'protocol' key is missing in input rule " + rule_name + ' of interface ' + interface)
+                            # # Unless the protocol is 'icmp', the 'ports' key is required
+                            # if content[interface][input_output][rule_name]['protocol'] != 'icmp':
+                            #     if 'ports' not in content[interface][input_output][rule_name]:
+                            #         raise Exception("'ports' key is missing in input rule " + rule_name + ' of interface ' + interface)
 
-                            # Retrieve port, protocols, allow and drop values
-                            ports = content[interface][input_output][rule_name]['port']
-                            protocols = content[interface][input_output][rule_name]['protocols']
+                            # Retrieve port, protocol, allow and drop values
+                            protocol = content[interface][input_output][rule_name]['protocol']
+                            ports = content[interface][input_output][rule_name]['ports'] if 'ports' in content[interface][input_output][rule_name] else []
                             sources = content[interface][input_output][rule_name][allow_drop]
 
-                            # Apply rule only if it is not a dry run
-                            if not dry_run:
-                                if input_output == 'input':
-                                    if allow_drop == 'allow':
-                                        self.iptablesInputController.allow(ip_version, interface, sources, protocols, ports)
+                            # Generate rules
+                            if input_output == 'input':
+                                if allow_drop == 'allow':
+                                    self.nftablesInputController.generate_allow_rules(ip_version, interface, sources, protocol, ports)
 
-                                    if allow_drop == 'drop':
-                                        self.iptablesInputController.drop(ip_version, interface, sources, protocols, ports)
+                                if allow_drop == 'drop':
+                                    self.nftablesInputController.generate_drop_rules(ip_version, interface, sources, protocol, ports)
+
+        #
+        # Write all rules and config to file
+        #
+        self.nftablesInputController.write(config)
+        print('\r ' + Fore.GREEN + '✔' + Style.RESET_ALL)
+
+        #
+        # Check if the rules are valid
+        #
+        print(' ▪ Checking rules', end = ' ')
+        self.nftablesController.check()
+        print('\r ' + Fore.GREEN + '✔' + Style.RESET_ALL)
+
+        #
+        # Apply rules (if not dry run)
+        #
+        if not dry_run:
+            print(' ▪ Applying rules', end = ' ')
+            self.nftablesController.apply()
+            print('\r ' + Fore.GREEN + '✔' + Style.RESET_ALL)
 
 
     #-----------------------------------------------------------------------------------------------
@@ -162,8 +173,8 @@ class Rule:
         # In the rules file, loop through every interface to apply their rules
         for interface in content:
             # First check that this interface exists on the system
-            # Ignore this check if the interface is 'all'
-            if interface != 'all':
+            # Ignore this check if the interface is 'any'
+            if interface != 'any':
                 result = subprocess.run(
                     ["/usr/sbin/route -n | awk '{print $NF}' | grep -q '" + interface + "'"],
                     capture_output = True,
@@ -174,16 +185,27 @@ class Rule:
                 # If interface does not exist, raise an exception
                 if result.returncode != 0:
                     raise Exception('Interface ' + interface + ' does not exist on this system')
+            
+            # Print an error if the ip version is not defined
+            if 'ip_version' not in content[interface]:
+                raise Exception('ip_version (v4 or v6) is not defined for interface ' + interface)
+            
+            # Check that the ip_version is valid
+            if content[interface]['ip_version'] not in [4, 6]:
+                raise Exception('ip_version must be either 4 or 6')
+            
+            # Get the ip version
+            ip_version = content[interface]['ip_version']
 
             # Ignore this interface if it has no 'input' or 'output' rules
             if 'input' not in content[interface] and 'output' not in content[interface]:
                 continue
 
             # Add interface to the table
-            if interface == 'all':
-                table.append([Fore.GREEN + 'any (all interfaces)' + Style.RESET_ALL, '', '', '', ''])
+            if interface == 'any':
+                table.append([Fore.GREEN + 'any (all interfaces)' + Style.RESET_ALL + ' (ipv' + str(ip_version) + ')', '', '', '', ''])
             else:
-                table.append(['Interface ' + Fore.GREEN + interface + Style.RESET_ALL, '', '', '', ''])
+                table.append(['Interface ' + Fore.GREEN + interface + Style.RESET_ALL + ' (ipv' + str(ip_version) + ')', '', '', '', ''])
 
             # Apply input rules of the interface
             if 'input' in content[interface]:
@@ -195,17 +217,19 @@ class Rule:
                     allow_formatted = []
                     drop_formatted = []
 
-                    # Check if every required key is present
-                    if 'port' not in content[interface]['input'][rule_name]:
-                        raise Exception("'port' key is missing in input rule " + rule_name + ' of interface ' + interface)
-                    if 'protocols' not in content[interface]['input'][rule_name]:
-                        raise Exception("'protocols' key is missing in input rule " + rule_name + ' of interface ' + interface)
+                    # Check if protocol key is present
+                    if 'protocol' not in content[interface]['input'][rule_name]:
+                        raise Exception("'protocol' key is missing in input rule " + rule_name + ' of interface ' + interface)
+                    # Unless the protocol is 'icmp', the 'ports' key is required
+                    if content[interface]['input'][rule_name]['protocol'] != 'icmp':
+                        if 'ports' not in content[interface]['input'][rule_name]:
+                            raise Exception("'ports' key is missing in input rule " + rule_name + ' of interface ' + interface)
                     if 'allow' not in content[interface]['input'][rule_name] and 'drop' not in content[interface]['input'][rule_name]:
                         raise Exception("Neither 'allow' nor 'drop' key is present in input rule " + rule_name + ' of interface ' + interface)
 
-                    # Retrieve port, protocols, allow and drop values
-                    ports = content[interface]['input'][rule_name]['port']
-                    protocols = content[interface]['input'][rule_name]['protocols']
+                    # Retrieve port, protocol, allow and drop values
+                    protocol = content[interface]['input'][rule_name]['protocol']
+                    ports = content[interface]['input'][rule_name]['ports'] if 'ports' in content[interface]['input'][rule_name] else []
                     if 'allow' in content[interface]['input'][rule_name]:
                         allow = content[interface]['input'][rule_name]['allow']
                     if 'drop' in content[interface]['input'][rule_name]:
@@ -214,20 +238,38 @@ class Rule:
                     # Do some formatting for table display
                     for a in allow:
                         # Retrieve the IP addresses from the sources files
-                        ip = self.sourceController.getIp(a)
+                        # ip = self.sourceController.getIp(a)
+                        # If source is not an IP address, get the IP address from the sources files
+                        if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$', a):
+                            ip = self.sourceController.getIp(a)
+                        else:
+                            ip = a
+
                         # Format allow with colors
-                        allow_formatted.append(Fore.GREEN + a + Style.RESET_ALL + Style.DIM + ' (' + ip + ')' + Style.RESET_ALL)
+                        if (a == ip):
+                            allow_formatted.append(Fore.GREEN + a + Style.RESET_ALL)
+                        else:
+                            allow_formatted.append(Fore.GREEN + a + Style.RESET_ALL + Style.DIM + ' (' + ip + ')' + Style.RESET_ALL)
                     for d in drop:
                         # Retrieve the IP addresses from the sources files
-                        ip = self.sourceController.getIp(d)
+                        # ip = self.sourceController.getIp(d)
+                        # If source is not an IP address, get the IP address from the sources files
+                        if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$', d):
+                            ip = self.sourceController.getIp(d)
+                        else:
+                            ip = d
+
                         # Format drop with colors
-                        drop_formatted.append(Fore.YELLOW + d + Style.RESET_ALL + Style.DIM + ' (' + ip + ')' + Style.RESET_ALL)
+                        if (d == ip):
+                            drop_formatted.append(Fore.YELLOW + d + Style.RESET_ALL)
+                        else:
+                            drop_formatted.append(Fore.YELLOW + d + Style.RESET_ALL + Style.DIM + ' (' + ip + ')' + Style.RESET_ALL)
 
                     # Add rule to the table
                     table.append([
                         rule_name,
-                        '\n' + str(ports),
-                        '\n'.join(protocols),
+                        '' if 'icmp' in ports else '\n'.join(map(str, ports)),
+                        'any (tcp, udp)' if protocol == 'any' else protocol,
                         '\n'.join(allow_formatted),
                         '\n'.join(drop_formatted),
                     ])
