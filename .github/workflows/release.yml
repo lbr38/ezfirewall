@@ -1,0 +1,206 @@
+on:
+  push:
+    branches: [ main ]
+
+name: Create ezfirewall release
+
+jobs:
+  build-deb:
+    name: Build deb package
+    runs-on: ubuntu-latest
+    container:
+      image: debian:latest
+      options: --user root
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get ezfirewall version
+        run: echo "VERSION=$(cat ${GITHUB_WORKSPACE}/version)" >> $GITHUB_ENV
+
+      - name: Install dependencies packages
+        run: apt-get update && apt-get install build-essential binutils lintian debhelper dh-make devscripts -y 
+
+      - name: Create build environment
+        run: |
+          mkdir -p /tmp/ezfirewall-build/DEBIAN
+          mkdir -p /tmp/ezfirewall-build/opt/ezfirewall
+          mkdir -p /tmp/ezfirewall-build/opt/ezfirewall/src/
+
+      - name: Copy files to include in the build
+        run: |
+          cp -r ${GITHUB_WORKSPACE}/src/* /tmp/ezfirewall-build/opt/ezfirewall/src/
+          cp ${GITHUB_WORKSPACE}/ezfirewall.py /tmp/ezfirewall-build/opt/ezfirewall/ezfirewall.py
+          cp ${GITHUB_WORKSPACE}/version /tmp/ezfirewall-build/opt/ezfirewall/version
+
+      - name: Copy control file
+        run: |
+          cp ${GITHUB_WORKSPACE}/.github/workflows/packaging/deb/control /tmp/ezfirewall-build/DEBIAN/control
+          sed -i "s/__VERSION__/${{ env.VERSION }}/g" /tmp/ezfirewall-build/DEBIAN/control
+
+      - name: Copy preinst and postinst script
+        run: |
+          cp ${GITHUB_WORKSPACE}/.github/workflows/packaging/deb/preinst /tmp/ezfirewall-build/DEBIAN/preinst
+          cp ${GITHUB_WORKSPACE}/.github/workflows/packaging/deb/postinst /tmp/ezfirewall-build/DEBIAN/postinst
+          chmod 755 /tmp/ezfirewall-build/DEBIAN/preinst /tmp/ezfirewall-build/DEBIAN/postinst
+
+      - name: Build package
+        run: |
+          cd /tmp
+          dpkg-deb --build ezfirewall-build
+          mv /tmp/ezfirewall-build.deb /tmp/ezfirewall_${{ env.VERSION }}_all.deb
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ezfirewall_${{ env.VERSION }}_all.deb
+          path: /tmp/ezfirewall_${{ env.VERSION }}_all.deb
+          retention-days: 3
+
+  # build-rpm:
+  #   name: Build rpm package
+  #   runs-on: ubuntu-latest
+  #   container:
+  #     image: centos:8
+  #     options: --user root
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+
+  #     - name: Get ezfirewall version
+  #       run: echo "VERSION=$(cat ${GITHUB_WORKSPACE}/version)" >> $GITHUB_ENV
+
+  #     - name: Install CentOS8 archive repositories
+  #       run: |
+  #         rm /etc/yum.repos.d/* -f
+
+  #         echo "[os]
+  #         name=os repo
+  #         baseurl=https://vault.centos.org/8-stream/BaseOS/x86_64/os/
+  #         enabled=1
+  #         gpgkey=https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official-SHA256
+  #         gpgcheck=1" > /etc/yum.repos.d/os.repo
+
+  #         echo "[appstream]
+  #         name=updates repo
+  #         baseurl=https://vault.centos.org/8-stream/AppStream/x86_64/os/
+  #         enabled=1
+  #         gpgkey=https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official-SHA256
+  #         gpgcheck=1" > /etc/yum.repos.d/appstream.repo
+
+  #         echo "[extras]
+  #         name=extras repo
+  #         baseurl=https://vault.centos.org/8-stream/extras/x86_64/extras-common/
+  #         enabled=1
+  #         gpgkey=https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official-SHA256
+  #         gpgcheck=1" > /etc/yum.repos.d/extras.repo
+
+  #         dnf clean all
+
+  #     - name: Install dependencies packages
+  #       run: dnf install rpmdevtools rpmlint -y
+
+  #     - name: Create build environment
+  #       run: |
+  #         mkdir -p $HOME/rpmbuild/BUILD
+  #         mkdir -p $HOME/rpmbuild/BUILDROOT
+  #         mkdir -p $HOME/rpmbuild/RPMS
+  #         mkdir -p $HOME/rpmbuild/SOURCES
+  #         mkdir -p $HOME/rpmbuild/SPECS
+  #         mkdir -p /opt/ezfirewall/src/
+
+  #     - name: Copy files to include in the build
+  #       run: |
+  #         cp -r ${GITHUB_WORKSPACE}/src/* /opt/ezfirewall/src/
+  #         cp ${GITHUB_WORKSPACE}/ezfirewall.py /opt/ezfirewall/ezfirewall.py
+  #         cp ${GITHUB_WORKSPACE}/version /opt/ezfirewall/version
+
+  #     - name: Copy spec file
+  #       run: |
+  #         cp ${GITHUB_WORKSPACE}/.github/workflows/packaging/rpm/spec $HOME/rpmbuild/SPECS/ezfirewall.spec
+  #         sed -i "s/__VERSION__/${{ env.VERSION }}/g" $HOME/rpmbuild/SPECS/ezfirewall.spec
+
+  #     - name: Build package
+  #       run: |
+  #         cd $HOME/rpmbuild/SPECS
+  #         rpmbuild --target noarch -bb --quiet ezfirewall.spec
+  #         mv $HOME/rpmbuild/RPMS/noarch/ezfirewall-${{ env.VERSION }}-stable.noarch.rpm /tmp/ezfirewall-${{ env.VERSION }}.noarch.rpm
+
+  #     - name: Upload artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: ezfirewall-${{ env.VERSION }}.noarch.rpm
+  #         path: /tmp/ezfirewall-${{ env.VERSION }}.noarch.rpm
+  #         retention-days: 3
+
+  release:
+    name: Create Release
+    needs:
+      - build-deb
+      # - build-rpm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get ezfirewall version
+        run: echo "VERSION=$(cat ${GITHUB_WORKSPACE}/version)" >> $GITHUB_ENV
+
+      # Download builded deb package artifact
+      - name: Download deb artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ezfirewall_${{ env.VERSION }}_all.deb
+          path: ~/assets
+      
+      # Download builded rpm package artifact
+      # - name: Download rpm artifact
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: ezfirewall-${{ env.VERSION }}.noarch.rpm
+      #     path: ~/assets
+
+      # Create a new release
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.VERSION }}
+          release_name: ${{ env.VERSION }}
+          body: |
+            **Changes**
+            - test
+          draft: false
+          prerelease: false
+
+      # Upload packages to release
+      - name: Upload packages
+        id: upload-release-assets
+        uses: dwenegar/upload-release-assets@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          release_id: ${{ steps.create_release.outputs.id }}
+          assets_path: ~/assets
+
+      # Upload package to repository
+      - name: Upload packages to repositories
+        run: | 
+          curl --fail-with-body -L --post301 -s -q -X POST -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -F "files=@$HOME/assets/ezfirewall_${{ env.VERSION }}_all.deb" https://packages.repomanager.net/api/v2/snapshot/130/upload
+          curl --fail-with-body -L --post301 -s -q -X POST -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -F "files=@$HOME/assets/ezfirewall_${{ env.VERSION }}_all.deb" https://packages.repomanager.net/api/v2/snapshot/131/upload
+          curl --fail-with-body -L --post301 -s -q -X POST -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -F "files=@$HOME/assets/ezfirewall_${{ env.VERSION }}_all.deb" https://packages.repomanager.net/api/v2/snapshot/132/upload
+          curl --fail-with-body -L --post301 -s -q -X POST -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -F "files=@$HOME/assets/ezfirewall_${{ env.VERSION }}_all.deb" https://packages.repomanager.net/api/v2/snapshot/133/upload
+#          curl --fail-with-body -L --post301 -s -q -X POST -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -F "files=@$HOME/assets/ezfirewall-${{ env.VERSION }}.noarch.rpm" https://packages.repomanager.net/api/v2/snapshot/70/upload
+#          curl --fail-with-body -L --post301 -s -q -X POST -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -F "files=@$HOME/assets/ezfirewall-${{ env.VERSION }}.noarch.rpm" https://packages.repomanager.net/api/v2/snapshot/71/upload
+
+      # Rebuild repositories metadata
+      - name: Rebuild repositories
+        run: |
+          curl --fail-with-body -X PUT -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -d '{"gpgSign":"true"}' https://packages.repomanager.net/api/v2/snapshot/130/rebuild
+          curl --fail-with-body -X PUT -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -d '{"gpgSign":"true"}' https://packages.repomanager.net/api/v2/snapshot/131/rebuild
+          curl --fail-with-body -X PUT -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -d '{"gpgSign":"true"}' https://packages.repomanager.net/api/v2/snapshot/132/rebuild
+          curl --fail-with-body -X PUT -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -d '{"gpgSign":"true"}' https://packages.repomanager.net/api/v2/snapshot/133/rebuild
+#          curl --fail-with-body -X PUT -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -d '{"gpgSign":"true"}' https://packages.repomanager.net/api/v2/snapshot/70/rebuild
+#          curl --fail-with-body -X PUT -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -d '{"gpgSign":"true"}' https://packages.repomanager.net/api/v2/snapshot/71/rebuild
