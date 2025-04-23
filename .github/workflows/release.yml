@@ -26,6 +26,8 @@ jobs:
           mkdir -p /tmp/ezfirewall-build/DEBIAN
           mkdir -p /tmp/ezfirewall-build/opt/ezfirewall
           mkdir -p /tmp/ezfirewall-build/opt/ezfirewall/src/
+          mkdir -p /tmp/ezfirewall-build/opt/ezfirewall/sources/
+          mkdir -p /tmp/ezfirewall-build/opt/ezfirewall/rules/
 
       - name: Copy files to include in the build
         run: |
@@ -108,6 +110,8 @@ jobs:
   #         mkdir -p $HOME/rpmbuild/SOURCES
   #         mkdir -p $HOME/rpmbuild/SPECS
   #         mkdir -p /opt/ezfirewall/src/
+  #         mkdir -p /opt/ezfirewall/sources/
+  #         mkdir -p /opt/ezfirewall/rules/
 
   #     - name: Copy files to include in the build
   #       run: |
@@ -171,7 +175,7 @@ jobs:
           release_name: ${{ env.VERSION }}
           body: |
             **Changes**
-            - test
+            - First release
           draft: false
           prerelease: false
 

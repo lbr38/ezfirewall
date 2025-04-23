@@ -46,30 +46,30 @@ class Source:
                 raise Exception('Source file ' + str(file) + ' is not a valid YAML file: ' + str(e))
 
             # Loop through every source group to find the source
-            for group in sources:
-                # If nothing is declared in the group, then ignore it
-                if not sources[group]:
-                    continue
+            # for group in sources:
+            #     # If nothing is declared in the group, then ignore it
+            #     if not sources[group]:
+            #         continue
 
-                for s in sources[group]:
-                    # If the source is already in the sources dictionary, then raise an exception because it is a duplicate
-                    if s in sources_list:
-                        raise Exception('Found duplicate source "' + s + '" in source file ' + str(file))
-                    
-                    # Retrieve IP address
-                    ip = sources[group][s]
-                    
-                    # Check that IP is not empty
-                    if not ip:
-                        raise Exception('IP address of source "' + s + '" is empty')
-                    
-                    # Check that IP is a valid IP address
-                    # If can either be xxx.xxx.xxx.xxx or xxx.xxx.xxx.xxx/xx
-                    if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$', ip):
-                        raise Exception('IP address "' + ip + '" of source "' + s + '" is not a valid IP address')
+            for s in sources:
+                # If the source is already in the sources dictionary, then raise an exception because it is a duplicate
+                if s in sources_list:
+                    raise Exception('Found duplicate source "' + s + '" in source file ' + str(file))
 
-                    # Add the source to the sources dictionary
-                    sources_list[s] = sources[group][s]
+                # Retrieve IP address
+                ip = sources[s]
+                
+                # Check that IP is not empty
+                if not ip:
+                    raise Exception('IP address of source "' + s + '" is empty')
+                
+                # Check that IP is a valid IP address
+                # If can either be xxx.xxx.xxx.xxx or xxx.xxx.xxx.xxx/xx
+                if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$', ip):
+                    raise Exception('IP address "' + ip + '" of source "' + s + '" is not a valid IP address')
+
+                # Add the source to the sources dictionary
+                sources_list[s] = ip
 
         # If the source was found, return the IP address
         if source in sources_list:
@@ -87,6 +87,8 @@ class Source:
     def list(self, search: str = None):
         table = []
 
+        print(' ▪ Listing sources')
+
         # If no source files are present, return
         if not list(Path(self.sources_dir).iterdir()):
             raise Exception('No source files were found')
@@ -96,24 +98,19 @@ class Source:
             # Source files are YAML files, so check if it is readable and parseable
             try:
                 with open(file, 'r') as f:
-                    content = yaml.safe_load(f)
+                    sources = yaml.safe_load(f)
             except Exception as e:
                 raise Exception('Source file ' + str(file) + ' is not a valid YAML file: ' + str(e))
 
-            for group in content:
-                if not content:
-                    continue
+            if not sources:
+                continue
 
+            for source in sources:
                 # If a search term is provided, then only display the group that contains the search term
-                if search and search not in group:
+                if search and search not in source:
                     continue
 
-                # Append group name to table
-                table.append([Fore.GREEN + group + Style.RESET_ALL, ''])
-
-                # Append sources to table
-                for source in content[group]:
-                    table.append([source, content[group][source]])
-
+                # Append source name to table
+                table.append([source, sources[source]])
 
         print(tabulate(table, tablefmt = 'fancy_grid'))

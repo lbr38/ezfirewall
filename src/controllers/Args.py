@@ -19,8 +19,8 @@ class Args:
         print('  --quiet, -q         : Enable quiet mode (answer yes to all questions)')
         print('  --debug             : Enable debug mode')
         print('  --dry-run, -d       : Enable dry run mode')
-        print('  --add-source, -as   : Add a source')
         print('  --list-sources, -ls : List current sources')
+        #print('  --add-source, -as   : Add a source')
 
 
     #-----------------------------------------------------------------------------------------------
@@ -50,7 +50,7 @@ class Args:
             # TODO
             parser.add_argument("--add-source", "-as", action="store_true", default="null")
             # List sources
-            parser.add_argument("--list-sources", "-ls", action="store_true", default="null")
+            parser.add_argument("--list-sources", "-ls", action="store", nargs='?', default="null")
 
             # Parse arguments
             args, remaining_args = parser.parse_known_args()
@@ -88,8 +88,12 @@ class Args:
 
             # If --list-sources param has been set
             if args.list_sources != "null":
-                Source().list()
-                exit(0)
+                try:
+                    Source().list(args.list_sources)
+                    exit(0)
+                except Exception as e:
+                    print(Fore.RED + ' ✕ ' + str(e) + Style.RESET_ALL)
+                    exit(1)
 
         except Exception as e:
             raise Exception(str(e))
