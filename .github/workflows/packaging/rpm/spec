@@ -12,6 +12,7 @@ Requires: python3
 Requires: python3-colorama
 Requires: python3-yaml
 Requires: python3-tabulate
+Requires: python3-dateutil
 
 %description
 Ezfirewall is a simple nftables firewall script written in Python. It allows you to easily manage your firewall rules with YAML files.
@@ -24,9 +25,22 @@ install -m 0750 -d $RPM_BUILD_ROOT/opt/
 cp -r /opt/ezfirewall $RPM_BUILD_ROOT/opt/
 
 %post
-# Set permissions
-chmod 750 /opt/ezfirewall
-chown root:root /opt/ezfirewall
+# Set permissions except on the www directory which should be world-readable
+chown -R root:root /opt/ezfirewall
+find /opt/ezfirewall -type d -not -path "/opt/ezfirewall/www*" -exec chmod 750 {} \;
+find /opt/ezfirewall -type f -not -path "/opt/ezfirewall/www*" -exec chmod 640 {} \;
+find /opt/ezfirewall/www -type d -exec chmod 755 {} \;
+find /opt/ezfirewall/www -type f -exec chmod 644 {} \;
+chmod 751 /opt/ezfirewall
+chmod 750 /opt/ezfirewall/ezfirewall.py
+chmod 644 /opt/ezfirewall/version
+chmod 751 /opt/ezfirewall/bin/rsyslog-to-database.py
+
+# If /etc/sysconfig/nftables.conf, replace it with a symlink to /etc/nftables.conf
+if [ -f "/etc/sysconfig/nftables.conf" ];then
+    rm -f /etc/sysconfig/nftables.conf
+    ln -s /etc/nftables.conf /etc/sysconfig/nftables.conf
+fi
 
 # Create a symlink for the ezfirewall command
 if [ ! -L "/usr/local/bin/ezfirewall" ]; then

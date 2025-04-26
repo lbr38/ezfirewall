@@ -1,6 +1,14 @@
 #!/bin/bash
-chmod 750 /opt/ezfirewall
+# Set permissions except on the www directory which should be world-readable
+chown -R root:root /opt/ezfirewall
+find /opt/ezfirewall -type d -not -path "/opt/ezfirewall/www*" -exec chmod 750 {} \;
+find /opt/ezfirewall -type f -not -path "/opt/ezfirewall/www*" -exec chmod 640 {} \;
+find /opt/ezfirewall/www -type d -exec chmod 755 {} \;
+find /opt/ezfirewall/www -type f -exec chmod 644 {} \;
+chmod 751 /opt/ezfirewall
 chmod 750 /opt/ezfirewall/ezfirewall.py
+chmod 644 /opt/ezfirewall/version
+chmod 751 /opt/ezfirewall/bin/rsyslog-to-database.py
 
 # Create a symlink for the ezfirewall command
 if [ ! -L "/usr/local/bin/ezfirewall" ]; then

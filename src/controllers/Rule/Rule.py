@@ -169,8 +169,9 @@ class Rule:
             if interface != 'any':
                 result = subprocess.run(
                     ["/usr/sbin/route -n | awk '{print $NF}' | grep -q '" + interface + "'"],
-                    capture_output = True,
-                    text = True,
+                    stdout = subprocess.PIPE,
+                    stderr = subprocess.PIPE,
+                    universal_newlines = True,
                     shell = True
                 )
 
