@@ -1,5 +1,5 @@
 Package: ezfirewall
-Version: 1.0.0
+Version: __VERSION__
 Section: main
 Priority: optional
 Architecture: all

@@ -48,7 +48,7 @@ class Args:
             parser.add_argument("--dry-run", "-d", action="store_true", default="null")
             # Add source
             # TODO
-            parser.add_argument("--add-source", "-as", action="store_true", default="null")
+            # parser.add_argument("--add-source", "-as", action="store_true", default="null")
             # List sources
             parser.add_argument("--list-sources", "-ls", action="store", nargs='?', default="null")
 

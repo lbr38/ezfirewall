@@ -26,13 +26,11 @@ class Config:
         # Generate configuration
         config = {
             'ipv4': {
-                'enabled': True,
                 'input_default_policy': 'drop',
                 'output_default_policy': 'accept',
                 'log_dropped_traffic': False,
             },
             'ipv6': {
-                'enabled': False,
                 'input_default_policy': 'drop',
                 'output_default_policy': 'accept',
                 'log_dropped_traffic': False,

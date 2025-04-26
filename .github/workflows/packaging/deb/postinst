@@ -1,3 +1,25 @@
 #!/bin/bash
 chmod 750 /opt/ezfirewall
 chmod 750 /opt/ezfirewall/ezfirewall.py
+
+# Create a symlink for the ezfirewall command
+if [ ! -L "/usr/local/bin/ezfirewall" ]; then
+    ln -s /opt/ezfirewall/ezfirewall.py /usr/local/bin/ezfirewall
+fi
+
+# Deploy rsyslog configuration for ezfirewall
+if [ -d /etc/rsyslog.d ]; then
+    \cp /opt/ezfirewall/templates/nftables-rsyslog /etc/rsyslog.d/nftables.conf
+    chmod 644 /etc/rsyslog.d/nftables.conf
+
+    # Restart rsyslog if it is running
+    if systemctl is-active --quiet rsyslog; then
+        systemctl restart rsyslog --quiet
+    fi
+fi
+
+# Deploy logrotate configuration for nftables drop logs
+if [ -d /etc/logrotate.d ]; then
+    \cp /opt/ezfirewall/templates/nftables-logrotate /etc/logrotate.d/nftables
+    chmod 644 /etc/logrotate.d/nftables
+fi

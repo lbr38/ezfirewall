@@ -29,20 +29,44 @@ vim /opt/ezfirewall/rules/eth0.yml
 eth0:
   # The IP version of the interface (v4 or v6)
   ip_version: 4
+
+  # The input rules
   input:
     # The rule description name
     ssh:
-      # The port(s) (use 'any' to apply to all ports)
-      port:
+      # The protocol (tcp or udp or icmp) (use 'any' to apply to both tcp and udp)
+      protocol: tcp
+
+      # The port(s) (use 'any' to apply to all ports) (no need to specify the ports for icmp)
+      ports:
         - 22
-      # The protocol(s) (use 'any' to apply to all protocols)
-      protocols:
-        - tcp
-      # The source IP addresses to allow
+
+      # The source(s) name or IP addresses to allow
       allow:
         - office_public
+        # It can also be a CIDR range
+        - 12.34.0.0/16
 
-      # The source IP addresses to reject
+      # The source(s) name or IP addresses to reject
       drop:
         - x.x.x.x
+
+  # The output rules
+  output:
+    # TODO
+    
+```
+
+**Apply rules (launch the script)**
+
+Must be run as root.
+
+```shell
+ezfirewall
+```
+
+**Check the rules**
+
+```shell
+nft list ruleset
 ```

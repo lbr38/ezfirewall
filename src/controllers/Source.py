@@ -45,12 +45,6 @@ class Source:
             except Exception as e:
                 raise Exception('Source file ' + str(file) + ' is not a valid YAML file: ' + str(e))
 
-            # Loop through every source group to find the source
-            # for group in sources:
-            #     # If nothing is declared in the group, then ignore it
-            #     if not sources[group]:
-            #         continue
-
             for s in sources:
                 # If the source is already in the sources dictionary, then raise an exception because it is a duplicate
                 if s in sources_list:
@@ -113,4 +107,4 @@ class Source:
                 # Append source name to table
                 table.append([source, sources[source]])
 
-        print(tabulate(table, tablefmt = 'fancy_grid'))
+        print(tabulate(table, tablefmt = 'fancy_grid'), end='\n')
