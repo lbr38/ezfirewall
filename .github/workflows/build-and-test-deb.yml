@@ -29,6 +29,7 @@ jobs:
           mkdir -p /tmp/ezfirewall-build/DEBIAN
           mkdir -p /tmp/ezfirewall-build/opt/ezfirewall
           mkdir -p /tmp/ezfirewall-build/opt/ezfirewall/src/
+          mkdir -p /tmp/ezfirewall-build/opt/ezfirewall/bin/
           mkdir -p /tmp/ezfirewall-build/opt/ezfirewall/templates/
           mkdir -p /tmp/ezfirewall-build/opt/ezfirewall/sources/
           mkdir -p /tmp/ezfirewall-build/opt/ezfirewall/rules/
@@ -36,6 +37,7 @@ jobs:
       - name: Copy files to include in the build
         run: |
           cp -r ${GITHUB_WORKSPACE}/src/* /tmp/ezfirewall-build/opt/ezfirewall/src/
+          cp -r ${GITHUB_WORKSPACE}/bin/* /tmp/ezfirewall-build/opt/ezfirewall/bin/
           cp -r ${GITHUB_WORKSPACE}/templates/* /tmp/ezfirewall-build/opt/ezfirewall/templates/
           cp ${GITHUB_WORKSPACE}/ezfirewall.py /tmp/ezfirewall-build/opt/ezfirewall/ezfirewall.py
           cp ${GITHUB_WORKSPACE}/version /tmp/ezfirewall-build/opt/ezfirewall/version

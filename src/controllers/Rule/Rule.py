@@ -119,14 +119,6 @@ class Rule:
                             if allow_drop not in content[interface][input_output][rule_name]:
                                 continue
 
-                            # Check if protocol key is present
-                            # if 'protocol' not in content[interface][input_output][rule_name]:
-                            #     raise Exception("'protocol' key is missing in input rule " + rule_name + ' of interface ' + interface)
-                            # # Unless the protocol is 'icmp', the 'ports' key is required
-                            # if content[interface][input_output][rule_name]['protocol'] != 'icmp':
-                            #     if 'ports' not in content[interface][input_output][rule_name]:
-                            #         raise Exception("'ports' key is missing in input rule " + rule_name + ' of interface ' + interface)
-
                             # Retrieve port, protocol, allow and drop values
                             protocol = content[interface][input_output][rule_name]['protocol']
                             ports = content[interface][input_output][rule_name]['ports'] if 'ports' in content[interface][input_output][rule_name] else []
@@ -203,13 +195,13 @@ class Rule:
 
             # Add interface to the table
             if interface == 'any':
-                table.append([Fore.GREEN + 'any (all interfaces)' + Style.RESET_ALL + ' (ipv' + str(ip_version) + ')', '', '', '', ''])
+                table.append([Style.BRIGHT + Fore.GREEN + 'any (all interfaces)' + Style.RESET_ALL + ' (IPv' + str(ip_version) + ')', '', '', '', ''])
             else:
-                table.append(['Interface ' + Fore.GREEN + interface + Style.RESET_ALL + ' (ipv' + str(ip_version) + ')', '', '', '', ''])
+                table.append([Style.BRIGHT + 'Interface ' + Fore.GREEN + interface + Style.RESET_ALL + ' (IPv' + str(ip_version) + ')', '', '', '', ''])
 
             # Apply input rules of the interface
             if 'input' in content[interface]:
-                table.append(["Rule name", "Port(s)", "Protocol(s)", "Allow input packets from", "Drop input packets from"])
+                table.append([Style.BRIGHT + "Rule name", "Port(s)", "Protocol(s)", "Allow input packets from", "Drop input packets from" + Style.RESET_ALL])
 
                 for rule_name in content[interface]['input']:
                     allow = []
@@ -219,13 +211,13 @@ class Rule:
 
                     # Check if protocol key is present
                     if 'protocol' not in content[interface]['input'][rule_name]:
-                        raise Exception("'protocol' key is missing in input rule " + rule_name + ' of interface ' + interface)
+                        raise Exception("'protocol' key is missing in input rule '" + rule_name + "' of interface " + interface)
                     # Unless the protocol is 'icmp', the 'ports' key is required
                     if content[interface]['input'][rule_name]['protocol'] != 'icmp':
                         if 'ports' not in content[interface]['input'][rule_name]:
-                            raise Exception("'ports' key is missing in input rule " + rule_name + ' of interface ' + interface)
+                            raise Exception("'ports' key is missing in input rule '" + rule_name + "' of interface " + interface)
                     if 'allow' not in content[interface]['input'][rule_name] and 'drop' not in content[interface]['input'][rule_name]:
-                        raise Exception("Neither 'allow' nor 'drop' key is present in input rule " + rule_name + ' of interface ' + interface)
+                        raise Exception("Neither 'allow' nor 'drop' key is present in input rule '" + rule_name + "' of interface " + interface)
 
                     # Retrieve port, protocol, allow and drop values
                     protocol = content[interface]['input'][rule_name]['protocol']
@@ -274,4 +266,5 @@ class Rule:
                         '\n'.join(drop_formatted),
                     ])
 
+        print(' ▪ The following rules will be applied:')
         print(tabulate(table, tablefmt="fancy_grid"), end='\n')  

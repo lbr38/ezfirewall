@@ -15,6 +15,8 @@ class Service:
         if not services:
             return
 
+        print(' ▪ Restarting services... ')
+
         for service in services:
             # Check if service is active
             result = subprocess.run(
