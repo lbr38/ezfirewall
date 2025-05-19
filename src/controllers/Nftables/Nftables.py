@@ -151,8 +151,9 @@ class Nftables:
         #
         result = subprocess.run(
             ['nft', '-c', '-f', file],
-            capture_output = True,
-            text = True
+            stdout = subprocess.PIPE,
+            stderr = subprocess.PIPE,
+            universal_newlines = True
         )
 
         # If the config file is not valid, raise an exception
@@ -179,8 +180,9 @@ class Nftables:
         #
         result = subprocess.run(
             ['nft -f /etc/nftables.conf'],
-            capture_output = True,
-            text = True,
+            stdout = subprocess.PIPE,
+            stderr = subprocess.PIPE,
+            universal_newlines = True,
             shell = True
         )
 

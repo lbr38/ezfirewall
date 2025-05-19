@@ -26,6 +26,7 @@ jobs:
           mkdir -p /tmp/ezfirewall-build/DEBIAN
           mkdir -p /tmp/ezfirewall-build/opt/ezfirewall
           mkdir -p /tmp/ezfirewall-build/opt/ezfirewall/src/
+          mkdir -p /tmp/ezfirewall-build/opt/ezfirewall/www/
           mkdir -p /tmp/ezfirewall-build/opt/ezfirewall/bin/
           mkdir -p /tmp/ezfirewall-build/opt/ezfirewall/templates/
           mkdir -p /tmp/ezfirewall-build/opt/ezfirewall/sources/
@@ -34,6 +35,7 @@ jobs:
       - name: Copy files to include in the build
         run: |
           cp -r ${GITHUB_WORKSPACE}/src/* /tmp/ezfirewall-build/opt/ezfirewall/src/
+          cp -r ${GITHUB_WORKSPACE}/www/* /tmp/ezfirewall-build/opt/ezfirewall/www/
           cp -r ${GITHUB_WORKSPACE}/bin/* /tmp/ezfirewall-build/opt/ezfirewall/bin/
           cp -r ${GITHUB_WORKSPACE}/templates/* /tmp/ezfirewall-build/opt/ezfirewall/templates/
           cp ${GITHUB_WORKSPACE}/ezfirewall.py /tmp/ezfirewall-build/opt/ezfirewall/ezfirewall.py
@@ -114,6 +116,7 @@ jobs:
           mkdir -p $HOME/rpmbuild/SOURCES
           mkdir -p $HOME/rpmbuild/SPECS
           mkdir -p /opt/ezfirewall/src/
+          mkdir -p /opt/ezfirewall/www/
           mkdir -p /opt/ezfirewall/bin/
           mkdir -p /opt/ezfirewall/templates/
           mkdir -p /opt/ezfirewall/sources/
@@ -122,6 +125,7 @@ jobs:
       - name: Copy files to include in the build
         run: |
           cp -r ${GITHUB_WORKSPACE}/src/* /opt/ezfirewall/src/
+          cp -r ${GITHUB_WORKSPACE}/www/* /opt/ezfirewall/www/
           cp -r ${GITHUB_WORKSPACE}/bin/* /opt/ezfirewall/bin/
           cp -r ${GITHUB_WORKSPACE}/templates/* /opt/ezfirewall/templates/
           cp ${GITHUB_WORKSPACE}/ezfirewall.py /opt/ezfirewall/ezfirewall.py
@@ -183,7 +187,7 @@ jobs:
           release_name: ${{ env.VERSION }}
           body: |
             **Changes**
-            - Various fixes and improvements
+            - Added web interface dashboard
           draft: false
           prerelease: false
 

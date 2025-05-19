@@ -21,8 +21,9 @@ class Service:
             # Check if service is active
             result = subprocess.run(
                 ['/usr/bin/systemctl', 'is-active', service + '.service', '--quiet'],
-                capture_output = True,
-                text = True,
+                stdout = subprocess.PIPE,
+                stderr = subprocess.PIPE,
+                universal_newlines = True
             )
 
             # If service is not active, ignore it
@@ -34,8 +35,9 @@ class Service:
             # Restart service
             result = subprocess.run(
                 ['/usr/bin/systemctl', 'restart', service + '.service'],
-                capture_output = True,
-                text = True,
+                stdout = subprocess.PIPE,
+                stderr = subprocess.PIPE,
+                universal_newlines = True
             )
 
             # If servcie has failed to restart

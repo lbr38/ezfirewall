@@ -13,14 +13,14 @@ module(load="omprog")
 # If the message contains [nftables-drop]
 if $msg contains '[nftables-drop]' then {
     # Send log to admin API through a python script
-    # action(type="omprog"
-    #        name="nftables-dropped-log-to-database"
-    #        binary="/opt/ezfirewall/bin/rsyslog-to-database.py"
-    #        queue.type="LinkedList"
-    #        queue.workerThreads="1"
-    #        action.resumeInterval="5"
-    #        killUnresponsive="on"
-    #        template="CustomLogFormat")
+    action(type="omprog"
+           name="nftables-dropped-log-to-database"
+           binary="/opt/ezfirewall/bin/rsyslog-to-database.py"
+           queue.type="LinkedList"
+           queue.workerThreads="1"
+           action.resumeInterval="5"
+           killUnresponsive="on"
+           template="CustomLogFormat")
 
     # Also log message to a file
     action (type="omfile" File="/var/log/nftables.log")

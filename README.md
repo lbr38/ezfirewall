@@ -43,6 +43,7 @@ eth0:
 
       # The source(s) name or IP addresses to allow
       allow:
+        - home_public
         - office_public
         # It can also be a CIDR range
         - 12.34.0.0/16
@@ -52,8 +53,8 @@ eth0:
         - x.x.x.x
 
   # The output rules
-  output:
-    # TODO
+  # output:
+  # TODO
     
 ```
 

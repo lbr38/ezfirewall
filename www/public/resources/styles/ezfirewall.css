@@ -1,0 +1,24 @@
+article {
+    /* height: 80vh; */
+    padding: 20px;
+}
+
+#main-charts {
+    min-height: 450px;
+    display: flex;
+    flex-direction: column;
+    row-gap: 20px;
+}
+
+#main-charts canvas {
+    min-height: 500px;
+    max-width: 100%;
+}
+
+/* Desktop configuration */
+@media (min-width:1025px) {
+    #main-charts {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
