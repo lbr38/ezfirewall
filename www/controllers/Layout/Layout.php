@@ -7,7 +7,7 @@ use Datetime;
 
 class Layout
 {
-    public function render(string $tab = 'home')
+    public function render(string $tab)
     {
         $class = '\Controllers\Layout\Tab' . '\\' . ucfirst($tab);
 

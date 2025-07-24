@@ -15,6 +15,10 @@ article {
     max-width: 100%;
 }
 
+.country-flag-icon {
+    max-height: 16px;
+}
+
 /* Desktop configuration */
 @media (min-width:1025px) {
     #main-charts {

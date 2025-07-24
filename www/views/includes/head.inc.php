@@ -7,24 +7,14 @@
     <link rel="stylesheet" href="/resources/styles/normalize.css?<?= VERSION ?>"/>
     <link rel="stylesheet" href="/resources/styles/common.css?<?= VERSION ?>"/>
     <link rel="stylesheet" href="/resources/styles/ezfirewall.css?<?= VERSION ?>"/>
-    <!-- <link rel="stylesheet" type='text/css' href="/resources/styles/select2.css?<?= VERSION ?>"> -->
 
+    <!-- Load pre JS -->
+    <script src="/resources/js/pre/functions/global.js?<?= VERSION ?>"></script>
+    <script src="/resources/js/pre/pre.js?<?= VERSION ?>"></script>
     <!-- jQuery -->
     <script src="/resources/js/libs/jquery-3.7.1.min.js?<?= VERSION ?>"></script>
-    <!-- Select2 https://select2.org/ -->
-    <!-- <script src="/resources/js/libs/select2.js?<?= VERSION ?>"></script> -->
     <!-- ChartJS -->
     <script src="/resources/js/libs/chartjs-4.4.8.umd.js?<?= VERSION ?>"></script>
-
-    <?php
-    /**
-     *  Load pre scripts if any
-     */
-    // if (is_dir(ROOT . '/public/resources/js/pre')) {
-    //     foreach (glob(ROOT . '/public/resources/js/pre/*.js') as $file) {
-    //         echo '<script type="text/javascript" src="/resources/js/pre/' . basename($file) . '?' . VERSION . '"></script>';
-    //     }
-    // } ?>
 
     <!-- Favicon -->
     <!-- <link rel="icon" href="/assets/favicon.ico" /> -->

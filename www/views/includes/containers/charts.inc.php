@@ -1,6 +1,6 @@
 <section class="main-container reloadable-container height-100" container="charts">
     <div class="div-generic-blue">
-        <p>Most blocked IP is <span class="label-black"><?= $mostBlockedIP['Source_ip'] ?></span> (blocked <?= $mostBlockedIP['count'] ?> times since <?= $firstDate ?>)</p>
+        <p>Most blocked IP is <a href="/ip?ip=<?= $mostBlockedIP['Source_ip'] ?>"><span class="label-black"><?= $mostBlockedIP['Source_ip'] ?></span></a> (blocked <?= $mostBlockedIP['count'] ?> times since <?= $firstDate ?>)</p>
         <br>
         <p>Most blocked port is <span class="label-black"><?= $mostBlockedPort['port'] ?></span> (blocked <?= $mostBlockedPort['count'] ?> times since <?= $firstDate ?>)</p>
     </div>
@@ -51,6 +51,13 @@
                 
                 unset($labels, $datas, $backgrounds); ?>
             </div>
+        </div>
+    </div>
+
+    <div class="grid grid-2 column-gap-15 div-generic-blue">
+        <div>
+            <?php
+            \Controllers\Layout\Table\Render::render('charts/blocked-ips'); ?>
         </div>
     </div>
 </section>
