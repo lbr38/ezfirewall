@@ -6,3 +6,38 @@
         <br><br><br>
     </div>
 </footer>
+
+<script src="/resources/js/general.js?<?= VERSION ?>"></script>
+<script src="/resources/js/functions.js?<?= VERSION ?>"></script>
+
+<!-- Import some classes -->
+<script src="/resources/js/classes/Cookie.js?<?= VERSION ?>"></script>
+<script src="/resources/js/classes/IpLocate.js?<?= VERSION ?>"></script>
+
+<script>
+    const mycookie = new Cookie();
+    const myIpLocate = new IpLocate();
+</script>
+
+
+<?php
+/**
+ *  Additional JS files
+ */
+// if (__ACTUAL_URI__[1] == '') {
+//     $jsFiles =[
+//         
+//     ];
+// }
+// if (__ACTUAL_URI__[1] == 'ip') {
+//     $jsFiles =[
+//        
+//     ];
+// }
+if (!empty($jsFiles)) {
+    foreach ($jsFiles as $jsFile) {
+        if (is_file(ROOT . '/public/resources/js/' . $jsFile . '.js')) {
+            echo '<script src="/resources/js/' . $jsFile . '.js?' . VERSION . '"></script>';
+        }
+    }
+} ?>

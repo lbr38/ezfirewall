@@ -30,6 +30,26 @@ class Nftables
     }
 
     /**
+     * Return blocked port by ip
+     * It is possible to add an offset to the request
+     * @return array
+     */
+    public function getBlockedPort(string $ip, bool $withOffset = false, int $offset = 0) : array
+    {
+        return $this->model->getBlockedPort($ip, $withOffset, $offset);
+    }
+
+    /**
+     * Return all blocked IP
+     * It is possible to add an offset to the request
+     * @return array
+     */
+    public function getBlockedIP(bool $withOffset = false, int $offset = 0) : array
+    {
+        return $this->model->getBlockedIP($withOffset, $offset);
+    }
+
+    /**
      * Return the most blocked IP since first date
      * @return array
      */
@@ -51,9 +71,9 @@ class Nftables
      * Return the top 10 destination port that have been blocked
      * @return array
      */
-    public function getTopTenDestinationPorts(string $date = null) : array
+    public function getTopTenDestinationPorts(string $date = null, string $ip = null) : array
     {
-        return $this->model->getTopTenDestinationPorts($date);
+        return $this->model->getTopTenDestinationPorts($date, $ip);
     }
 
     /**
