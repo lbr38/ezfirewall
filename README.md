@@ -6,7 +6,7 @@ A simple script that will make it easier for you to manage **nftables** firewall
 - Language: **Python 3.x**
 - Backend: **nftables**
 - IPv6 compatible: **should be, to test**
-- Docker compatible: yes
+- Docker compatible: **yes**
 
 ```
            __ _                        _ _ 
@@ -26,17 +26,24 @@ Available parameters:
 Install
 =======
 
-**Debian 11/12, Ubuntu 22.04 and newer**
+<img src="https://github.com/user-attachments/assets/6bf74c2c-c8bc-4ffd-9fa4-ba1d89de0b27" width="18" /> **Debian 11/12, Ubuntu 22.04 and newer**
 
 ```shell
 curl -sS https://packages.repomanager.net/repo/gpgkeys/packages.repomanager.net.pub | gpg --dearmor > /etc/apt/trusted.gpg.d/packages.repomanager.net.gpg
+```
 
+```shell
 cat << EOF > /etc/apt/sources.list.d/ezfirewall.list
 deb https://packages.repomanager.net/repo/ezfirewall/debian/main_prod debian main
 EOF
 ```
 
-**RHEL 8 based OS and newer**
+```shell
+apt update
+apt install ezfirewall
+```
+
+<img src="https://github.com/user-attachments/assets/f14deb0d-bf59-4147-844b-b8a2762f7f13" width="18" /> **RHEL 8 based OS (CentOS, Alma...) and newer**
 
 ```shell
 cat << EOF > /etc/yum.repos.d/ezfirewall.repo
@@ -49,6 +56,10 @@ gpgcheck=1
 EOF
 ```
 
+```shell
+dnf install ezfirewall
+```
+
 How to
 ======
 
@@ -57,7 +68,7 @@ How to
 They can be used in the rulesets.
 
 ```shell
-vim /opt/ezfirewall/sources/known_ips.yml
+vim /opt/ezfirewall/sources/trusted_networks.yml
 ```
 
 ```yaml
@@ -173,8 +184,8 @@ Web interface
 
 The web interface is still work in progress / beta. More features will be added in the future.
 
-- Turn on the 
-- You will need a web server with PHP 8.2 or newer, with PHP SQLite extension installed.
+- Set the `log_dropped_traffic` options to `True` in the configuration file to enable logging of dropped packets.
+- You will need a web server with PHP 8.2 or newer and PHP SQLite extension installed.
 - The web server must serve the files from `/opt/ezfirewall/www/public`.
 - SSL certificate is recommended unless you are using it only on a local network.
 
