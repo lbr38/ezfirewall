@@ -1,6 +1,4 @@
 <?php
-$nftablesController = new \Controllers\Nftables();
-
 /**
  * An IP address is required
  */
@@ -19,10 +17,3 @@ if (!filter_var($_GET['ip'], FILTER_VALIDATE_IP)) {
  * Get the sanitized IP address
  */
 $ip = $_GET['ip'];
-
-/**
- * Get the top 10 destination port that have been blocked
- */
-$topBlockedPorts = $nftablesController->getTopTenDestinationPorts(null, $ip);
-
-unset($nftablesController);

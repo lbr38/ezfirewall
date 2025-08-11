@@ -3,10 +3,11 @@
 
 import sys
 import sqlite3
-import dateutil.parser
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
+import dateutil.parser
+import yaml
 
 # Function to write message to database
 def write_to_database(message: str):
@@ -121,21 +122,37 @@ def write_to_database(message: str):
 
     del con, cursor, fields, date, time, interface_inbound, interface_outbound, mac, source_ip, dest_ip, source_port, dest_port, protocol
 
-# Clean logs older than 30 days
+# Clean logs older than X days
 def clean():
+
+    # Default to 30 days if config file is not available or reading fails
+    retention_days = 30
+
+    # Get retention from config file
+    try:
+        if Path('/opt/ezfirewall/config.yml').exists():
+            with open('/opt/ezfirewall/config.yml', 'r') as f:
+                config = yaml.safe_load(f)
+                if 'log_retention_days' in config:
+                    retention_days = config['log_retention_days']
+
+            del config, f
+    except Exception:
+        pass
+
     con = sqlite3.connect('/var/lib/ezfirewall/ezfirewall.db')
     cursor = con.cursor()
 
-    # Calculate date 30 days ago
-    date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+    # Calculate date x days ago
+    date = (datetime.now() - timedelta(days=retention_days)).strftime('%Y-%m-%d')
 
-    # Delete logs older than 7 days
+    # Delete logs older than x days
     cursor.execute("DELETE FROM nftables_drop WHERE Date < ?", (date,))
     con.commit()
     con.close()
 
     del con, cursor, date
-    
+
 #
 # Process rsyslog messages from stdin
 #
@@ -170,4 +187,4 @@ for line in sys.stdin:
         #
         # If an error occurs, print it
         #
-        print(f"Failed to write log: {e}\n")
+        print('Failed to write log: ' + str(e))

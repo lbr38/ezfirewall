@@ -1,15 +1,11 @@
 <?php
-$nftablesController = new \Controllers\Nftables();
+$nftablesController = new \Controllers\Nftables\Nftables();
+$nftablesIpController = new \Controllers\Nftables\Ip();
+$nftablesPortController = new \Controllers\Nftables\Port();
 $date = date('Y-m-d');
 
 if (!empty($_GET['date'])) {
     $date = $_GET['date'];
-}
-
-if ($date == date('Y-m-d')) {
-    $dateTitle = 'Today';
-} else {
-    $dateTitle = $date;
 }
 
 /**
@@ -25,21 +21,11 @@ $lastDate = $nftablesController->getLastDate();
 /**
  * Get the most blocked IP since first date
  */
-$mostBlockedIP = $nftablesController->getMostBlockedIP();
+$mostBlockedIP = $nftablesIpController->getMostBlockedIP();
 
 /**
  * Get the most blocked port since first date
  */
-$mostBlockedPort = $nftablesController->getMostBlockedPort();
+$mostBlockedPort = $nftablesPortController->getMostBlockedPort();
 
-/**
- * Get the top 10 destination port that have been blocked
- */
-$topDestinationPorts = $nftablesController->getTopTenDestinationPorts($date);
-
-/**
- * Get the top 10 IP address that have been blocked
- */
-$topBlockedIPs = $nftablesController->getTopTenBlockedIPs($date);
-
-unset($nftablesController);
+unset($nftablesController, $nftablesIpController, $nftablesPortController);

@@ -1,8 +1,9 @@
 # coding: utf-8
 
 # Import libraries
-from colorama import Fore, Style
 import argparse
+import sys
+from colorama import Fore, Style
 
 # Import classes
 from src.controllers.Source import Source
@@ -60,13 +61,13 @@ class Args:
                 raise Exception('Invalid arguments: ' + ' '.join(remaining_args))
         except Exception as e:
             raise Exception(str(e))
-        
+
         try:
             # If --help param has been set
             if args.help != "null":
                 if args.help:
                     self.help()
-                    exit(0)
+                    sys.exit(0)
 
             # If --debug param has been set
             if args.debug != "null":
@@ -90,10 +91,10 @@ class Args:
             if args.list_sources != "null":
                 try:
                     Source().list(args.list_sources)
-                    exit(0)
+                    sys.exit(0)
                 except Exception as e:
                     print(Fore.RED + ' ✕ ' + str(e) + Style.RESET_ALL)
-                    exit(1)
+                    sys.exit(1)
 
         except Exception as e:
             raise Exception(str(e))

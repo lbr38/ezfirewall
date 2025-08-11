@@ -11,29 +11,26 @@
 <script src="/resources/js/functions.js?<?= VERSION ?>"></script>
 
 <!-- Import some classes -->
+<script src="/resources/js/classes/Layout.js?<?= VERSION ?>"></script>
+<script src="/resources/js/classes/Container.js?<?= VERSION ?>"></script>
+<script src="/resources/js/classes/Table.js?<?= VERSION ?>"></script>
 <script src="/resources/js/classes/Cookie.js?<?= VERSION ?>"></script>
 <script src="/resources/js/classes/IpLocate.js?<?= VERSION ?>"></script>
+<script src="/resources/js/classes/Alert.js?<?= VERSION ?>"></script>
+<script src="/resources/js/classes/AsyncChart.js?<?= VERSION ?>"></script>
 
 <script>
+    const mylayout = new Layout();
+    const mycontainer = new Container();
+    const mytable = new Table();
     const mycookie = new Cookie();
-    const myIpLocate = new IpLocate();
+    const myiplocate = new IpLocate();
+    const myalert = new Alert();
+    const mychart = new AsyncChart();
 </script>
 
 
 <?php
-/**
- *  Additional JS files
- */
-// if (__ACTUAL_URI__[1] == '') {
-//     $jsFiles =[
-//         
-//     ];
-// }
-// if (__ACTUAL_URI__[1] == 'ip') {
-//     $jsFiles =[
-//        
-//     ];
-// }
 if (!empty($jsFiles)) {
     foreach ($jsFiles as $jsFile) {
         if (is_file(ROOT . '/public/resources/js/' . $jsFile . '.js')) {

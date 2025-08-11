@@ -18,4 +18,3 @@ class Template:
             return content
         except Exception as e:
             raise Exception('could not read the template file /opt/ezfirewall/templates/netfilter.conf.template: ' + str(e))
-        

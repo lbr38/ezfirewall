@@ -1,12 +1,12 @@
 # coding: utf-8
 
 # Import libraries
-from colorama import Fore, Style
-from pathlib import Path
-from datetime import datetime
-import subprocess
 import os
 import shutil
+import subprocess
+from pathlib import Path
+from datetime import datetime
+from colorama import Fore, Style
 
 class Nftables:
     def __init__(self):
@@ -28,7 +28,7 @@ class Nftables:
                 os.remove('/etc/nftables.conf.new')
             except Exception as e:
                 raise Exception('error while deleting /etc/nftables.conf.new: ' + str(e))
-        
+
         try:
             shutil.copy2('/opt/ezfirewall/templates/nftables.conf', '/etc/nftables.conf.new')
         except Exception as e:
@@ -52,7 +52,7 @@ class Nftables:
             shutil.copy2('/etc/nftables.conf', self.nftables_backup)
         except Exception as e:
             raise Exception('error while backing up current configuration: ' + str(e))
-        
+
         print('\r ' + Fore.GREEN + '✔' + Style.RESET_ALL)
 
 
@@ -67,7 +67,7 @@ class Nftables:
         # Check if backup files exist
         if not Path(self.nftables_backup).exists():
             raise Exception('backup file does not exist: ' + self.nftables_backup)
-        
+
         # Delete current nftables configuration
         try:
             os.remove('/etc/nftables.conf.new')
@@ -79,7 +79,7 @@ class Nftables:
             shutil.copy2(self.nftables_backup, '/etc/nftables.conf.new')
         except Exception as e:
             raise Exception('error while restoring nftables configuration to /etc/nftables.conf.new: ' + str(e))
-        
+
         # Check the restored configuration
         self.check()
 
@@ -98,47 +98,6 @@ class Nftables:
     def print_table(self, quiet: bool = False):
         return
 
-        # Ask for confirmation if not in quiet mode
-        if not quiet:
-            print(' ▪ Print iptables IPv4 table? [y/N] ', end = '')
-            answer = input().lower()
-
-            if answer != 'y':
-                return
-
-        result = subprocess.run(
-            ['/sbin/iptables', '-L', '-n', '--line-numbers', '-v'],
-            stdout = subprocess.PIPE,
-            stderr = subprocess.PIPE,
-            universal_newlines = True
-        )
-
-        # If printing the table failed, raise an exception
-        if result.returncode != 0:
-            raise Exception('Error while printing IPv4 table: ' + result.stderr)
-
-        print(result.stdout)
-
-        # Ask for confirmation if not in quiet mode
-        if not quiet:
-            print(' ▪ Print iptables IPv6 table? [y/N] ', end = '')
-            answer = input().lower()
-
-            if answer != 'y':
-                return
-
-        result = subprocess.run(
-            ['/sbin/ip6tables', '-L', '-n', '--line-numbers', '-v'],
-            stdout = subprocess.PIPE,
-            stderr = subprocess.PIPE,
-            universal_newlines = True
-        )
-
-        # If printing the table failed, raise an exception
-        if result.returncode != 0:
-            raise Exception('Error while printing IPv6 table: ' + result.stderr)
-
-        print(result.stdout)
 
     #-----------------------------------------------------------------------------------------------
     #

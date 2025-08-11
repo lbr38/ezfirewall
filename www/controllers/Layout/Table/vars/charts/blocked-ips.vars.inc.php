@@ -1,5 +1,5 @@
 <?php
-$nftablesController = new \Controllers\Nftables();
+$nftablesIpController = new \Controllers\Nftables\Ip();
 $reloadableTableOffset = 0;
 
 /**
@@ -12,12 +12,12 @@ if (!empty($_COOKIE['tables/charts/blocked-ips/offset']) and is_numeric($_COOKIE
 /**
  *  Get list of blocked IPs, with offset
  */
-$reloadableTableContent = $nftablesController->getBlockedIP(true, $reloadableTableOffset);
+$reloadableTableContent = $nftablesIpController->getBlockedIP(true, $reloadableTableOffset);
 
 /**
  *  Get list of ALL bloecked IPs, without offset, for the total count
  */
-$reloadableTableTotalItems = count($nftablesController->getBlockedIP());
+$reloadableTableTotalItems = count($nftablesIpController->getBlockedIP());
 
 /**
  *  Count total pages for the pagination
@@ -29,4 +29,4 @@ $reloadableTableTotalPages = ceil($reloadableTableTotalItems / 10);
  */
 $reloadableTableCurrentPage = ceil($reloadableTableOffset / 10) + 1;
 
-unset($nftablesController);
+unset($nftablesIpController);

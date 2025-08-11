@@ -1,8 +1,8 @@
 # coding: utf-8
 
 # Import libraries
-from colorama import Fore, Style
 import subprocess
+from colorama import Fore, Style
 
 class Service:
     #-----------------------------------------------------------------------------------------------
@@ -43,5 +43,5 @@ class Service:
             # If servcie has failed to restart
             if result.returncode != 0:
                 raise Exception('Failed to restart ' + service + ' service: ' + result.stderr)
-            
+
             print('\r ' + Fore.GREEN + '✔' + Style.RESET_ALL)

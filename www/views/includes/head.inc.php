@@ -3,10 +3,19 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <!-- To tell mobile browsers to adjust the width of the window to the width of the device's screen, and set the document scale to 100% of its intended size -->
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <link rel="stylesheet" href="/resources/styles/reset.css?<?= VERSION ?>"/>
-    <link rel="stylesheet" href="/resources/styles/normalize.css?<?= VERSION ?>"/>
-    <link rel="stylesheet" href="/resources/styles/common.css?<?= VERSION ?>"/>
-    <link rel="stylesheet" href="/resources/styles/ezfirewall.css?<?= VERSION ?>"/>
+
+    <!-- CSS for all pages -->
+    <link rel="stylesheet" type="text/css" href="/resources/styles/reset.css?<?= VERSION ?>">
+    <link rel="stylesheet" type="text/css" href="/resources/styles/normalize.css?<?= VERSION ?>">
+    <link rel="stylesheet" type="text/css" href="/resources/styles/common.css?<?= VERSION ?>">
+    <link rel="stylesheet" type="text/css" href="/resources/styles/components/layout.css?<?= VERSION ?>">
+    <link rel="stylesheet" type="text/css" href="/resources/styles/components/icon.css?<?= VERSION ?>">
+    <link rel="stylesheet" type="text/css" href="/resources/styles/components/input.css?<?= VERSION ?>">
+    <link rel="stylesheet" type="text/css" href="/resources/styles/components/button.css?<?= VERSION ?>">
+    <link rel="stylesheet" type="text/css" href="/resources/styles/components/label.css?<?= VERSION ?>">
+    <link rel="stylesheet" type="text/css" href="/resources/styles/components/tooltip.css?<?= VERSION ?>">
+    <link rel="stylesheet" type="text/css" href="/resources/styles/components/alert.css?<?= VERSION ?>">
+    <link rel="stylesheet" type="text/css" href="/resources/styles/ezfirewall.css?<?= VERSION ?>">
 
     <!-- Load pre JS -->
     <script src="/resources/js/pre/functions/global.js?<?= VERSION ?>"></script>
@@ -15,7 +24,8 @@
     <script src="/resources/js/libs/jquery-3.7.1.min.js?<?= VERSION ?>"></script>
     <!-- ChartJS -->
     <script src="/resources/js/libs/chartjs-4.4.8.umd.js?<?= VERSION ?>"></script>
-
-    <!-- Favicon -->
-    <!-- <link rel="icon" href="/assets/favicon.ico" /> -->
 </head>
+
+<nav class="flex justify-center margin-left-20 margin-top-15">
+    <a href="/"><img id="logo" src="/assets/icons/firewall.svg" alt="Ezfirewall Logo"></a>
+</nav>

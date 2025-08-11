@@ -12,7 +12,7 @@ class Input:
         self.nftablesController = Nftables()
         self.sourceController = Source()
 
-        self.ipv4_rules = {
+        self.rules = {
             'ipv4': {
                 'allow': [],
                 'drop': []
@@ -23,16 +23,6 @@ class Input:
             }
         }
 
-        self.ipv6_rules = {
-            'ipv4': {
-                'allow': [],
-                'drop': []
-            },
-            'ipv6': {
-                'allow': [],
-                'drop': []
-            }
-        }
 
     #-----------------------------------------------------------------------------------------------
     #
@@ -43,7 +33,15 @@ class Input:
         # Default arguments
         interface_arg = ''
         ports_arg = ''
-        
+
+        #
+        # Set the IP family based on the IP version
+        #
+        if ip_version == 'ipv4':
+            ip_family = 'ip'
+        if ip_version == 'ipv6':
+            ip_family = 'ip6'
+
         #
         # If interface is not 'any', then set the interface on which the rule will be applied
         #
@@ -63,7 +61,7 @@ class Input:
             #
             # If source is not an IP address, get the IP address from the sources files
             #
-            if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$', source):
+            if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}(\/\d{1,3})?$', source):
                 sourceIp = self.sourceController.getIp(source)
             else:
                 sourceIp = source
@@ -73,12 +71,12 @@ class Input:
             #
             # If both port and protocol are 'any', allow all traffic for the specified source
             if protocol == 'any' and 'any' in ports:
-                self.ipv4_rules['ipv' + str(ip_version)]['allow'].append(interface_arg + ' ip saddr ' + sourceIp + ' ct state ' + state + ' accept')
+                self.rules[str(ip_version)]['allow'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' ct state ' + state + ' accept')
                 continue
 
             # If protocol is 'any', use meta l4proto {tcp, udp} to match both TCP and UDP
             if protocol == 'any':
-                self.ipv4_rules['ipv' + str(ip_version)]['allow'].append(interface_arg + ' ip saddr ' + sourceIp + ' meta l4proto {tcp, udp} th ' + ports_arg + ' ct state ' + state + ' accept')
+                self.rules[str(ip_version)]['allow'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' meta l4proto {tcp, udp} th ' + ports_arg + ' ct state ' + state + ' accept')
 
             # If protocol is 'tcp' or 'udp'
             if protocol == 'tcp' or protocol == 'udp':
@@ -86,11 +84,11 @@ class Input:
                 if ports_arg == '':
                     protocol = 'meta l4proto ' + protocol
 
-                self.ipv4_rules['ipv' + str(ip_version)]['allow'].append(interface_arg + ' ip saddr ' + sourceIp + ' ' + protocol + ' ' + ports_arg + ' ct state ' + state + ' accept')
+                self.rules[str(ip_version)]['allow'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' ' + protocol + ' ' + ports_arg + ' ct state ' + state + ' accept')
 
             # If protocol is 'icmp'
             if protocol == 'icmp':
-                self.ipv4_rules['ipv' + str(ip_version)]['allow'].append(interface_arg + ' ip saddr ' + sourceIp + ' icmp type echo-request accept')
+                self.rules[str(ip_version)]['allow'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' icmp type echo-request accept')
 
 
     #-----------------------------------------------------------------------------------------------
@@ -102,7 +100,15 @@ class Input:
         # Default arguments
         interface_arg = ''
         ports_arg = ''
-        
+
+        #
+        # Set the IP family based on the IP version
+        #
+        if ip_version == 'ipv4':
+            ip_family = 'ip'
+        if ip_version == 'ipv6':
+            ip_family = 'ip6'
+
         #
         # If interface is not 'any', then set the interface on which the rule will be applied
         #
@@ -122,7 +128,7 @@ class Input:
             #
             # If source is not an IP address, get the IP address from the sources files
             #
-            if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$', source):
+            if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}(\/\d{1,3})?$', source):
                 sourceIp = self.sourceController.getIp(source)
             else:
                 sourceIp = source
@@ -132,12 +138,12 @@ class Input:
             #
             # If both port and protocol are 'any', drop all traffic for the specified source
             if protocol == 'any' and 'any' in ports:
-                self.ipv4_rules['ipv' + str(ip_version)]['drop'].append(interface_arg + ' ip saddr ' + sourceIp + ' drop')
+                self.rules[str(ip_version)]['drop'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' drop')
                 continue
 
             # If protocol is 'any', use meta l4proto {tcp, udp} to match both TCP and UDP
             if protocol == 'any':
-                self.ipv4_rules['ipv' + str(ip_version)]['drop'].append(interface_arg + ' ip saddr ' + sourceIp + ' meta l4proto {tcp, udp} th ' + ports_arg + ' drop')
+                self.rules[str(ip_version)]['drop'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' meta l4proto {tcp, udp} th ' + ports_arg + ' drop')
 
             # If protocol is 'tcp' or 'udp'
             if protocol == 'tcp' or protocol == 'udp':
@@ -145,11 +151,11 @@ class Input:
                 if ports_arg == '':
                     protocol = 'meta l4proto ' + protocol
 
-                self.ipv4_rules['ipv' + str(ip_version)]['drop'].append(interface_arg + ' ip saddr ' + sourceIp + ' ' + protocol + ' ' + ports_arg + ' drop')
+                self.rules[str(ip_version)]['drop'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' ' + protocol + ' ' + ports_arg + ' drop')
 
             # If protocol is 'icmp'
             if protocol == 'icmp':
-                self.ipv4_rules['ipv' + str(ip_version)]['drop'].append(interface_arg + ' ip saddr ' + sourceIp + ' icmp type echo-request drop')
+                self.rules[str(ip_version)]['drop'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' icmp type echo-request drop')
 
 
     #-----------------------------------------------------------------------------------------------
@@ -168,8 +174,8 @@ class Input:
         # Replace the template with the rules
         # Convert list to string with rules separated by line breaks
         #
-        file = file.replace('__IPV4_RULES__', '\n        '.join([*self.ipv4_rules['ipv4']['drop'], *self.ipv4_rules['ipv4']['allow']]))
-        file = file.replace('__IPV6_RULES__', '\n        '.join([*self.ipv6_rules['ipv6']['drop'], *self.ipv6_rules['ipv6']['allow']]))
+        file = file.replace('__IPV4_RULES__', '\n        '.join([*self.rules['ipv4']['drop'], *self.rules['ipv4']['allow']]))
+        file = file.replace('__IPV6_RULES__', '\n        '.join([*self.rules['ipv6']['drop'], *self.rules['ipv6']['allow']]))
 
         #
         # Enable or disable IPv4 and IPv6 logging of dropped packets
