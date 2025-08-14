@@ -3,6 +3,7 @@
 
 # Import libraries
 import traceback
+import sys
 from colorama import Fore, Style
 
 # Import classes
@@ -66,4 +67,4 @@ except Exception as e:
     exit_code = 1
 
 # Exit with exit code
-exit(exit_code)
+sys.exit(exit_code)

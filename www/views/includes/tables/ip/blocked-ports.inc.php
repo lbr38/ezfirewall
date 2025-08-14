@@ -1,5 +1,5 @@
 <div class="reloadable-table" table="<?= $table ?>" offset="<?= $reloadableTableOffset ?>">
-    <h5>All blocked ports (<?= $reloadableTableTotalItems ?>)</h5>
+    <h6 class="margin-top-0 margin-bottom-20">ALL BLOCKED PORTS (<?= $reloadableTableTotalItems ?>)</h6>
 
     <?php
     if (empty($reloadableTableContent)) {
@@ -15,8 +15,11 @@
         <?php
         foreach ($reloadableTableContent as $item) : ?>
             <div class="table-container grid-2 bck-blue-alt">
-                <p><?= $item['Dest_port'] ?></p>
-                <p><?= $item['Count'] ?></p>
+                <div class="flex align-item-center column-gap-10">
+                    <p><a href="/port?port=<?= $item['Dest_port'] ?>" target="_blank" rel="noopener"><?= $item['Dest_port'] ?></a></p>
+                    <p class="label-black font-size-12"><?= $item['Protocol'] ?></p>
+                </div>
+                <p class="font-size-14"><?= $item['Count'] ?></p>
             </div>
             <?php
         endforeach ?>

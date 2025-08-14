@@ -35,6 +35,7 @@ class Config:
                 'output_default_policy': 'accept',
                 'log_dropped_traffic': False,
             },
+            'log_retention_days': 30,
             'restart_services': [],
         }
 
@@ -57,5 +58,5 @@ class Config:
                 config = yaml.safe_load(file)
         except Exception as e:
             raise Exception('Failed to open configuration file: ' + str(e))
-        
+
         return config

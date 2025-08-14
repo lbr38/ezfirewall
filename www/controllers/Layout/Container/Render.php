@@ -10,7 +10,7 @@ class Render
     {
         try {
             if (!file_exists(ROOT . '/views/includes/containers/' . $container . '.inc.php')) {
-                throw new Exception('Could not retrieve content: unknow container ' . $container);
+                throw new Exception('Could not retrieve content: unknown container ' . $container);
             }
 
             /**

@@ -5,8 +5,8 @@ A simple script that will make it easier for you to manage **nftables** firewall
 
 - Language: **Python 3.x**
 - Backend: **nftables**
-- IPv6 compatible: **should be, to test**
-- Docker compatible: **yes**
+- IPv6 compatible
+- Docker compatible
 
 ```
            __ _                        _ _ 
@@ -94,33 +94,32 @@ vim /opt/ezfirewall/rules/eth0.yml
 # The network interface name (use 'any' to apply to all interfaces)
 eth0:
   # The IP version of the interface (v4 or v6)
-  ip_version: 4
+  ipv4:
+    # The input rules
+    input:
+      # The rule description name
+      ssh:
+        # The protocol (tcp or udp or icmp) (use 'any' to apply to both tcp and udp)
+        protocol: tcp
 
-  # The input rules
-  input:
-    # The rule description name
-    ssh:
-      # The protocol (tcp or udp or icmp) (use 'any' to apply to both tcp and udp)
-      protocol: tcp
+        # The port(s) (use 'any' to apply to all ports) (no need to specify the ports for icmp)
+        ports:
+          - 22
 
-      # The port(s) (use 'any' to apply to all ports) (no need to specify the ports for icmp)
-      ports:
-        - 22
+        # The source name(s) or IP addresses to allow
+        allow:
+          - home_public
+          - office_public
+          # It can also be a CIDR range
+          - 12.34.0.0/16
 
-      # The source name(s) or IP addresses to allow
-      allow:
-        - home_public
-        - office_public
-        # It can also be a CIDR range
-        - 12.34.0.0/16
+        # The source name(s) or IP addresses to reject
+        drop:
+          - x.x.x.x
 
-      # The source name(s) or IP addresses to reject
-      drop:
-        - x.x.x.x
-
-  # The output rules
-  # output:
-  # TODO: for now output rules are not implemented, all output traffic is allowed
+    # The output rules
+    # output:
+    # TODO: for now output rules are not implemented, all output traffic is allowed
     
 ```
 
@@ -159,6 +158,8 @@ Edit the `/opt/ezfirewall/config.yml` file and change the `log_dropped_traffic` 
 
 Raw logs are stored in `/var/log/nftables.log` and also in a dedicated database under `/var/lib/ezfirewall/ezfirewall.db` (database is used by the web interface).
 
+`log_retention_days` defines how many days the logs are kept in the database (default is 30 days).
+
 Restart services after applying the rules
 -----------------------------------------
 
@@ -175,6 +176,7 @@ ipv6:
   input_default_policy: drop
   output_default_policy: accept
   log_dropped_traffic: True
+log_retention_days: 30
 restart_services: 
   - docker
 ```
@@ -183,6 +185,17 @@ Web interface
 =============
 
 The web interface is still work in progress / beta. More features will be added in the future.
+
+<div align="center">
+    <img src="https://github.com/user-attachments/assets/63f14051-9958-4fd6-854d-6c47d9b9aab0" width=30% align="top">
+    &nbsp;
+    <img src="https://github.com/user-attachments/assets/1ce33e48-7340-4e35-bc17-6283746df24f" width=30% align="top">
+    &nbsp;
+    <img src="https://github.com/user-attachments/assets/1029ca8b-192e-4f1b-981c-829c04d18aeb" width=30% align="top">
+</div>
+<br>
+
+**Requirements**
 
 - Set the `log_dropped_traffic` options to `True` in the configuration file to enable logging of dropped packets.
 - You will need a web server with PHP 8.2 or newer and PHP SQLite extension installed.
@@ -215,7 +228,7 @@ server {
 }
  
 server {
-    set $WWW_DIR '/opt/ezfirewall/www';
+    set $ROOT_DIR '/opt/ezfirewall/www/public';
 
     listen <SERVER-IP>:443 ssl;
     server_name <FQDN>;
@@ -242,14 +255,22 @@ server {
     fastcgi_hide_header X-Powered-By;
 
     # Path to root directory
-    root $WWW_DIR/public;
+    root $ROOT_DIR;
  
     location / {
         rewrite ^ /index.php;
     }
 
+    # Reverse proxy for http://ip-api.com
+    # Useful to serve http over https
+    location /api/ip {
+        proxy_pass http://ip-api.com/json;
+        proxy_set_header Host ip-api.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
     location ~ \.php$ {
-        root $WWW_DIR/public;
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME $request_filename;
         fastcgi_param HTTPS on;
@@ -262,8 +283,8 @@ server {
     }
 
     # Static files
-    location ~ \.(?:svg|png|html|ttf|ico|jpg|jpeg|gif|css|js|map)$ {
-        expires 1d;
+    location ~ \.(svg|png|html|ttf|ico|jpg|jpeg|gif|css|js)$ {
+        expires 7d;
         add_header Cache-Control "public, max-age=3600 immutable";
         access_log off;
     }

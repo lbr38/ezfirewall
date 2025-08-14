@@ -1,10 +1,10 @@
 # coding: utf-8
 
 # Import libraries
-from colorama import Fore, Style
 from pathlib import Path
-import yaml
 import re
+from colorama import Fore, Style
+import yaml
 from tabulate import tabulate
 
 class Source:
@@ -52,14 +52,13 @@ class Source:
 
                 # Retrieve IP address
                 ip = sources[s]
-                
+
                 # Check that IP is not empty
                 if not ip:
                     raise Exception('IP address of source "' + s + '" is empty')
-                
-                # Check that IP is a valid IP address
-                # If can either be xxx.xxx.xxx.xxx or xxx.xxx.xxx.xxx/xx
-                if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$', ip):
+
+                # Check that IP is a valid IP address (v4 or v6)
+                if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}(\/\d{1,3})?$', ip):
                     raise Exception('IP address "' + ip + '" of source "' + s + '" is not a valid IP address')
 
                 # Add the source to the sources dictionary
@@ -68,7 +67,7 @@ class Source:
         # If the source was found, return the IP address
         if source in sources_list:
             return sources_list[source]
-        
+
         # If no IP was returned, then it means that the source was not found in any source file
         raise Exception('Source named ' + source + ' was not found in any source file')
 

@@ -1,31 +1,17 @@
 <section class="main-container reloadable-container height-100" container="ip">
-    <h3><?= $ip ?></h3>
+    <h3 class="margin-top-10">IP <?= $ip ?></h3>
 
     <div class="div-generic-blue">
-        <div class="grid grid-2 column-gap-15">
+        <div class="grid grid-rfr-1-2 column-gap-15">
             <div>
-                <h5>Top 10 blocked ports for this IP</h5>
-                <?php
-                if (empty($topBlockedPorts)) {
-                    echo '<p class="note">Nothing for now!</p>';
-                } ?>
+                <h6 class="margin-top-0 margin-bottom-20">TOP 10 BLOCKED PORTS FOR <?= $ip ?></h6>
 
-                <div>
-                    <?php
-                    $chartId = 'top-blocked-ports-chart';
-                    $datas = [];
-                    $labels = [];
-                    $backgrounds = [];
+                <div class="relative">
+                    <div id="top-blocked-ports-chart-loading" class="loading-veil">
+                        <img src="/assets/icons/loading.svg" class="icon-np">
+                    </div>
 
-                    foreach ($topBlockedPorts as $myIp) {
-                        $labels[] = '"' . $myIp['Dest_port'] . '"';
-                        $datas[] = '"' . $myIp['Count'] . '"';
-                        $backgrounds[] = '"#ffffff"';
-                    }
-
-                    include(ROOT . '/views/includes/charts/pie-chart.inc.php');
-
-                    unset($chartId, $labels, $datas, $backgrounds, $topBlockedPorts, $myIp); ?>
+                    <canvas id="top-blocked-ports-chart"></canvas>
                 </div>
             </div>
 
@@ -36,9 +22,9 @@
         </div>
     </div>
 
-    <div class="div-generic-blue grid grid-2 column-gap-15">
+    <div class="div-generic-blue grid grid-rfr-1-2 column-gap-15">
         <div>
-            <h5>Location</h5>
+            <h6 class="margin-top-0 margin-bottom-20">LOCATION</h6>
 
             <div class="ip-location grid grid-2 column-gap-15 row-gap-15" ip="<?= $ip ?>">            
                 <p>Country</p>
@@ -64,7 +50,8 @@
 
     <script>
         $(document).ready(function () {
-            myIpLocate.locateReplace('.ip-location');
+            mychart.pie('top-blocked-ports-chart');
+            myiplocate.locateReplace('.ip-location');
         });
     </script>
 </section>

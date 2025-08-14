@@ -1,5 +1,5 @@
 <?php
-$nftablesController = new \Controllers\Nftables();
+$nftablesPortController = new \Controllers\Nftables\Port();
 $reloadableTableOffset = 0;
 
 /**
@@ -31,12 +31,12 @@ if (!empty($_COOKIE['tables/ip/blocked-ports/offset']) and is_numeric($_COOKIE['
 /**
  *  Get list of blocked ports, with offset
  */
-$reloadableTableContent = $nftablesController->getBlockedPort($ip, true, $reloadableTableOffset);
+$reloadableTableContent = $nftablesPortController->getBlockedPortByIp($ip, true, $reloadableTableOffset);
 
 /**
- *  Get list of ALL bloeck ports, without offset, for the total count
+ *  Get list of ALL blocked ports, without offset, for the total count
  */
-$reloadableTableTotalItems = count($nftablesController->getBlockedPort($ip));
+$reloadableTableTotalItems = count($nftablesPortController->getBlockedPortByIp($ip));
 
 /**
  *  Count total pages for the pagination
@@ -48,4 +48,4 @@ $reloadableTableTotalPages = ceil($reloadableTableTotalItems / 10);
  */
 $reloadableTableCurrentPage = ceil($reloadableTableOffset / 10) + 1;
 
-unset($nftablesController);
+unset($nftablesPortController);

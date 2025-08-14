@@ -4,11 +4,13 @@ class IpLocate {
      *  @param {string} ip - The IP address to locate
      *  @returns {Promise} - A promise that resolves with the location data or rejects with an error message
      */
-    async locate(ip) {
+    async locate(ip)
+    {
         return new Promise((resolve, reject) => {
             $.ajax({
                 type: "GET",
-                url: "http://ip-api.com/json/" + ip,
+                // Call /api/ip/ endpoint which will redirect to the ip-api.com
+                url: "/api/ip/" + ip,
                 success: function (data, textStatus, jqXHR) {
                     /**
                      *  Retrieve and print success message
@@ -39,7 +41,8 @@ class IpLocate {
      * Locate an IP address and replace the DOM elements with the results
      * @param {} srcElements
      */
-    locateReplace(srcElements) {
+    locateReplace(srcElements)
+    {
         /**
          *  Save the context of 'this' to use inside the callback
          *  This is necessary because 'this' will refer to the current element in the context of the callback function.
