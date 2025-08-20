@@ -1,7 +1,8 @@
 <?php
 $nftablesIpController = new \Controllers\Nftables\Ip();
-$data = [];
+$datasets = [];
 $labels = [];
+$options = [];
 
 /**
  * A port is required
@@ -30,11 +31,11 @@ $topBlockedIpsTcp = $nftablesIpController->getTopTenBlockedIpByPort($port, 'TCP'
 /**
  * Prepare chart data
  */
-$title = '';
-$backgrounds = \Controllers\Layout\Color::randomColor(10);
+$options['title']['text'] = '';
 foreach ($topBlockedIpsTcp as $myIp) {
     $labels[] = $myIp['Source_ip'];
-    $data[] = $myIp['Count'];
+    $datasets[0]['data'][] = $myIp['Count'];
 }
+$datasets[0]['backgroundColor'] = \Controllers\Layout\Color::randomColor(10);
 
 unset($nftablesIpController, $topBlockedIpsTcp, $myIp);

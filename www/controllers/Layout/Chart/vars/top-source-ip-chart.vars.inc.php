@@ -1,8 +1,9 @@
 <?php
 $nftablesIpController = new \Controllers\Nftables\Ip();
 $date = date('Y-m-d');
-$data = [];
+$datasets = [];
 $labels = [];
+$options = [];
 
 if (!empty($_GET['date'])) {
     $date = $_GET['date'];
@@ -22,12 +23,11 @@ $topBlockedIPs = $nftablesIpController->getTopTenBlockedIp($date);
 /**
  *  Prepare chart data
  */
-$title = 'Top 10 IP addresses blocked on ' . strtolower($dateTitle);
-$backgrounds = \Controllers\Layout\Color::randomColor(10);
-
+$options['title']['text'] = 'Top 10 IP addresses blocked on ' . strtolower($dateTitle);
+$datasets[0]['backgroundColor'] = \Controllers\Layout\Color::randomColor(10);
 foreach ($topBlockedIPs as $ip) {
     $labels[] =  $ip['Source_ip'];
-    $data[] = $ip['Count'];
+    $datasets[0]['data'][] = $ip['Count'];
 }
 
-unset($nftablesIpController, $dateTitle, $topBlockedIPs);
+unset($nftablesIpController, $dateTitle, $topBlockedIPs, $ip);

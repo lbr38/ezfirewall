@@ -1,8 +1,9 @@
 <?php
 $nftablesPortController = new \Controllers\Nftables\Port();
 $date = date('Y-m-d');
-$data = [];
+$datasets = [];
 $labels = [];
+$options = [];
 
 if (!empty($_GET['date'])) {
     $date = $_GET['date'];
@@ -22,12 +23,11 @@ $topDestinationPorts = $nftablesPortController->getTopTenDestinationPorts($date)
 /**
  * Prepare chart data
  */
-$title = 'Top 10 destination ports blocked on ' . strtolower($dateTitle);
-$backgrounds = \Controllers\Layout\Color::randomColor(10);
-
+$options['title']['text'] = 'Top 10 destination ports blocked on ' . strtolower($dateTitle);
+$datasets[0]['backgroundColor'] = \Controllers\Layout\Color::randomColor(10);
 foreach ($topDestinationPorts as $port) {
     $labels[] = $port['Dest_port'] . ' (' . $port['Protocol'] . ')';
-    $data[] = $port['Count'];
+    $datasets[0]['data'][] = $port['Count'];
 }
 
-unset($nftablesPortController, $topDestinationPorts);
+unset($nftablesPortController, $topDestinationPorts, $port);

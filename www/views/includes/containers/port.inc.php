@@ -38,8 +38,8 @@
 
     <script>
         $(document).ready(function () {
-            mychart.pie('top-blocked-ips-tcp-chart');
-            mychart.pie('top-blocked-ips-udp-chart');
+            new AsyncChart('pie', 'top-blocked-ips-tcp-chart', true, 120000);
+            new AsyncChart('pie', 'top-blocked-ips-udp-chart', true, 120000);
         });
     </script>
 </section>

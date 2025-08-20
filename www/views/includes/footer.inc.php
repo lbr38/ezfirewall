@@ -26,7 +26,6 @@
     const mycookie = new Cookie();
     const myiplocate = new IpLocate();
     const myalert = new Alert();
-    const mychart = new AsyncChart();
 </script>
 
 

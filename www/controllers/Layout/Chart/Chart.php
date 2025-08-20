@@ -19,10 +19,9 @@ class Chart
              *  Return chart data
              */
             return [
-                'title' => $title,
-                'data' => $data,
+                'datasets' => $datasets,
                 'labels' => $labels,
-                'backgrounds' => $backgrounds
+                'options' => $options
             ];
         } catch (Exception $e) {
             throw new Exception('Error rendering chart: ' . $e->getMessage());

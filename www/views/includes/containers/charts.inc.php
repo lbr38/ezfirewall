@@ -45,8 +45,8 @@
 
     <script>
         $(document).ready(function() {
-            mychart.horizontalBar('top-source-ip-chart');
-            mychart.horizontalBar('top-destination-ports-chart');
+            new AsyncChart('horizontalBar', 'top-source-ip-chart', true, 120000);
+            new AsyncChart('horizontalBar', 'top-destination-ports-chart', true, 120000);
         });
     </script>
 </section>
