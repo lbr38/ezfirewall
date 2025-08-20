@@ -187,7 +187,6 @@ jobs:
           release_name: ${{ env.VERSION }}
           body: |
             **Changes**
-              - Added support for IPv6
               - Various UI fixes and improvements
           draft: false
           prerelease: false

@@ -1,5 +1,8 @@
 <?php
 $nftablesPortController = new \Controllers\Nftables\Port();
+$datasets = [];
+$labels = [];
+$options = [];
 
 /**
  * An IP address is required
@@ -28,11 +31,11 @@ $topBlockedPorts = $nftablesPortController->getTopTenDestinationPorts(null, $ip)
 /**
  * Prepare chart data
  */
-$title = '';
-$backgrounds = \Controllers\Layout\Color::randomColor(10);
+$options['title']['text'] = '';
 foreach ($topBlockedPorts as $myPort) {
     $labels[] = $myPort['Dest_port'];
-    $data[] = $myPort['Count'];
+    $datasets[0]['data'][] = $myPort['Count'];
 }
+$datasets[0]['backgroundColor'] = \Controllers\Layout\Color::randomColor(10);
 
 unset($nftablesPortController, $topBlockedPorts, $myPort);

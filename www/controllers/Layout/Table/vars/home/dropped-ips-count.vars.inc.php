@@ -5,19 +5,19 @@ $reloadableTableOffset = 0;
 /**
  *  Retrieve offset from cookie if exists
  */
-if (!empty($_COOKIE['tables/charts/blocked-ips/offset']) and is_numeric($_COOKIE['tables/charts/blocked-ips/offset'])) {
-    $reloadableTableOffset = $_COOKIE['tables/charts/blocked-ips/offset'];
+if (!empty($_COOKIE['tables/home/dropped-ips-count/offset']) and is_numeric($_COOKIE['tables/home/dropped-ips-count/offset'])) {
+    $reloadableTableOffset = $_COOKIE['tables/home/dropped-ips-count/offset'];
 }
 
 /**
- *  Get list of blocked IPs, with offset
+ *  Get list of dropped IPs, with offset
  */
 $reloadableTableContent = $nftablesIpController->getBlockedIP(true, $reloadableTableOffset);
 
 /**
- *  Get list of ALL bloecked IPs, without offset, for the total count
+ *  Get total count of dropped IPs
  */
-$reloadableTableTotalItems = count($nftablesIpController->getBlockedIP());
+$reloadableTableTotalItems = $nftablesIpController->getBlockedIP(false, 0, true)[0]['Count'];
 
 /**
  *  Count total pages for the pagination

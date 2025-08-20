@@ -14,11 +14,6 @@ if (!empty($_GET['date'])) {
 $firstDate = $nftablesController->getFirstDate();
 
 /**
- * Get the last date of the logs in the database
- */
-$lastDate = $nftablesController->getLastDate();
-
-/**
  * Get the most blocked IP since first date
  */
 $mostBlockedIP = $nftablesIpController->getMostBlockedIP();

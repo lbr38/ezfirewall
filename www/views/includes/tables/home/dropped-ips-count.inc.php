@@ -1,5 +1,5 @@
 <div class="reloadable-table" table="<?= $table ?>" offset="<?= $reloadableTableOffset ?>">
-    <h6 class="margin-top-0 margin-bottom-20">ALL BLOCKED IPs (<?= $reloadableTableTotalItems ?>)</h6>
+    <h6 class="margin-top-0 margin-bottom-20">DROPPED IPs BY COUNT (<?= $reloadableTableTotalItems ?>)</h6>
 
     <?php
     if (empty($reloadableTableContent)) {
@@ -16,7 +16,7 @@
         foreach ($reloadableTableContent as $item) : ?>
             <div class="table-container grid-2 wordbreakall bck-blue-alt">
                 <div class="flex align-center column-gap-10">
-                    <p><a href="/ip?ip=<?= $item['Source_ip'] ?>" target="_blank" rel="noopener"><b><?= $item['Source_ip'] ?></b></a></p>
+                    <p><a href="/ip?ip=<?= $item['Source_ip'] ?>" target="_blank" rel="noopener"><?= $item['Source_ip'] ?></a></p>
                     <div class="ip-location" ip="<?= $item['Source_ip'] ?>">
                         <p class="ip-location-flag">
                             <img src="/assets/icons/loading.svg" class="icon-np" />

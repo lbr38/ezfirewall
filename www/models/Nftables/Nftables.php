@@ -21,7 +21,7 @@ class Nftables extends \Models\Model
 
         try {
             // Trick by using a WHERE clause, to make sure to use the index instead of scanning the whole table
-            $stmt = $this->db->prepare('SELECT Date FROM nftables_drop WHERE Date > "" GROUP BY DATE ORDER BY Id ASC LIMIT 1');
+            $stmt = $this->db->prepare('SELECT Date FROM nftables_drop WHERE Date > "" ORDER BY Date ASC LIMIT 1');
             $result = $stmt->execute();
         } catch (Exception $e) {
             $this->error($e->getMessage());

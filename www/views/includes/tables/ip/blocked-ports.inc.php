@@ -17,7 +17,7 @@
             <div class="table-container grid-2 bck-blue-alt">
                 <div class="flex align-item-center column-gap-10">
                     <p><a href="/port?port=<?= $item['Dest_port'] ?>" target="_blank" rel="noopener"><?= $item['Dest_port'] ?></a></p>
-                    <p class="label-black font-size-12"><?= $item['Protocol'] ?></p>
+                    <code><?= $item['Protocol'] ?></code>
                 </div>
                 <p class="font-size-14"><?= $item['Count'] ?></p>
             </div>

@@ -34,7 +34,7 @@ curl -sS https://packages.repomanager.net/repo/gpgkeys/packages.repomanager.net.
 
 ```shell
 cat << EOF > /etc/apt/sources.list.d/ezfirewall.list
-deb https://packages.repomanager.net/repo/ezfirewall/debian/main_prod debian main
+deb https://packages.repomanager.net/repo/deb/ezfirewall/debian/main/prod debian main
 EOF
 ```
 
@@ -47,9 +47,9 @@ apt install ezfirewall
 
 ```shell
 cat << EOF > /etc/yum.repos.d/ezfirewall.repo
-[ezfirewall_prod]
+[ezfirewall]
 name=ezfirewall repo on packages.repomanager.net
-baseurl=https://packages.repomanager.net/repo/ezfirewall_prod
+baseurl=https://packages.repomanager.net/repo/rpm/ezfirewall/8/prod
 enabled=1
 gpgkey=https://packages.repomanager.net/repo/gpgkeys/packages.repomanager.net.pub
 gpgcheck=1
@@ -198,7 +198,7 @@ The web interface is still work in progress / beta. More features will be added 
 **Requirements**
 
 - Set the `log_dropped_traffic` options to `True` in the configuration file to enable logging of dropped packets.
-- You will need a web server with PHP 8.2 or newer and PHP SQLite extension installed.
+- You will need a web server with PHP 8.2 or newer and PHP SQLite, Yaml extensions installed (`php8.x-sqlite3`, `php8.x-yaml` on Debian based OS).
 - The web server must serve the files from `/opt/ezfirewall/www/public`.
 - SSL certificate is recommended unless you are using it only on a local network.
 

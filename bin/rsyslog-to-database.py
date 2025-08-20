@@ -32,7 +32,7 @@ def write_to_database(message: str):
     cursor.execute("PRAGMA journal_mode=WAL;")
 
     #
-    # Create table if it does not exist
+    # Create nftables_drop table if it does not exist
     #
     cursor.execute("CREATE TABLE IF NOT EXISTS nftables_drop ( \
         Id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, \
@@ -53,6 +53,7 @@ def write_to_database(message: str):
     cursor.execute("CREATE INDEX IF NOT EXISTS nftables_drop_index ON nftables_drop (Date, Time, Interface_inbound, Interface_outbound, Mac, Source_ip, Dest_ip, Source_port, Dest_port, Protocol)")
     cursor.execute("CREATE INDEX IF NOT EXISTS nftables_drop_date_index ON nftables_drop (Date)")
     cursor.execute("CREATE INDEX IF NOT EXISTS nftables_drop_dest_port_index ON nftables_drop (Dest_port)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS nftables_drop_dest_port_protocol_index ON nftables_drop (Dest_port, Protocol)")
     cursor.execute("CREATE INDEX IF NOT EXISTS nftables_drop_source_ip_index ON nftables_drop (Source_ip)")
 
     # Ignore logs with no source port or destination port
@@ -122,11 +123,25 @@ def write_to_database(message: str):
 
     del con, cursor, fields, date, time, interface_inbound, interface_outbound, mac, source_ip, dest_ip, source_port, dest_port, protocol
 
-# Clean logs older than X days
+# Clean logs older than X days, do it only once every sunday at midnight
 def clean():
-
+    last_cleanup = None
+    cleanup_file = '/var/lib/ezfirewall/.ezfirewall.db.cleanup'
     # Default to 30 days if config file is not available or reading fails
     retention_days = 30
+
+    # If today is not sunday and hour is not 0, skip cleanup
+    if datetime.now().weekday() != 6 or datetime.now().hour != 0:
+        return
+
+    # Get latest cleanup run
+    if Path(cleanup_file).exists():
+        with open(cleanup_file, 'r') as f:
+            last_cleanup = f.read().strip()
+
+    # If last cleanup was today, skip cleanup
+    if last_cleanup == datetime.now().strftime('%Y-%m-%d'):
+        return
 
     # Get retention from config file
     try:
@@ -151,7 +166,30 @@ def clean():
     con.commit()
     con.close()
 
-    del con, cursor, date
+    # Vacuum database to free space
+    con = sqlite3.connect('/var/lib/ezfirewall/ezfirewall.db')
+    cursor = con.cursor()
+    cursor.execute("VACUUM;")
+    con.commit()
+    con.close()
+
+    # Analyze database to optimize query performance
+    con = sqlite3.connect('/var/lib/ezfirewall/ezfirewall.db')
+    cursor = con.cursor()
+    cursor.execute("ANALYZE;")
+    con.commit()
+    con.close()
+
+    # Write last cleanup date to file
+    try:
+        with open(cleanup_file, 'w') as f:
+            f.write(datetime.now().strftime('%Y-%m-%d'))
+    except Exception:
+        raise Exception('Could not write to cleanup file ' + cleanup_file)
+
+    f.close()
+
+    del con, cursor, date, last_cleanup, cleanup_file, retention_days
 
 #
 # Process rsyslog messages from stdin
@@ -187,4 +225,4 @@ for line in sys.stdin:
         #
         # If an error occurs, print it
         #
-        print('Failed to write log: ' + str(e))
+        print('Error: ' + str(e))

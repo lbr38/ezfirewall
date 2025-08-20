@@ -12,16 +12,69 @@ class Ip extends \Models\Model
     }
 
     /**
-     * Return all blocked IP
+     * Return all drops
+     * It is possible to filter by IP address
      * It is possible to add an offset to the request
      * @return array
      */
-    public function getBlockedIP(bool $withOffset, int $offset) : array
+    public function getDrop(string $ip = null, bool $withOffset, int $offset, bool $count) : array
     {
         $data = [];
 
         try {
-            $query = 'SELECT Source_ip, COUNT(*) as Count FROM nftables_drop GROUP BY Source_ip ORDER BY Count DESC';
+            $query = 'SELECT';
+
+            // If count is requested, modify the query
+            if ($count) {
+                $query .= ' COUNT(*) as Count';
+            } else {
+                $query .= ' *';
+            }
+
+            $query .= ' FROM nftables_drop';
+
+            // If an IP is specified, add it to the query
+            if (!empty($ip)) {
+                $query .= ' WHERE Source_ip = :ip';
+            }
+
+            $query .= ' ORDER BY Id DESC';
+
+            // If offset is requested, add it to the query
+            if ($withOffset) {
+                $query .= ' LIMIT 10 OFFSET :offset';
+            }
+
+            $stmt = $this->db->prepare($query);
+            $stmt->bindValue(':ip', $ip);
+            $stmt->bindValue(':offset', $offset, SQLITE3_INTEGER);
+            $result = $stmt->execute();
+        } catch (Exception $e) {
+            $this->error($e->getMessage());
+        }
+
+        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $data[] = $row;
+        }
+
+        return $data;
+    }
+
+    /**
+     * Return all blocked IP
+     * It is possible to add an offset to the request
+     * @return array
+     */
+    public function getBlockedIP(bool $withOffset, int $offset, bool $count) : array
+    {
+        $data = [];
+
+        try {
+            if ($count) {
+                $query = 'SELECT COUNT(DISTINCT Source_ip) as Count FROM nftables_drop';
+            } else {
+                $query = 'SELECT Source_ip, COUNT(Source_ip) as Count FROM nftables_drop GROUP BY Source_ip ORDER BY Count DESC';
+            }
 
             // If offset is requested, add it to the query
             if ($withOffset) {

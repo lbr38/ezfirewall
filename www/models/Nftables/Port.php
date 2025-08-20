@@ -52,7 +52,7 @@ class Port extends \Models\Model
         $port = [];
 
         try {
-            $stmt = $this->db->prepare('SELECT Dest_port, Protocol, COUNT(*) as Count FROM nftables_drop GROUP BY Dest_port, Protocol ORDER BY Count DESC LIMIT 1');
+            $stmt = $this->db->prepare('SELECT Dest_port, Protocol, COUNT(Dest_port) as Count FROM nftables_drop GROUP BY Dest_port, Protocol ORDER BY Count DESC LIMIT 1');
             $result = $stmt->execute();
         } catch (Exception $e) {
             $this->error($e->getMessage());
