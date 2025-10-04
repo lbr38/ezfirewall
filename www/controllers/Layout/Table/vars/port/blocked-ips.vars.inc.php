@@ -29,12 +29,12 @@ if (!empty($_COOKIE['tables/port/blocked-ips/offset']) and is_numeric($_COOKIE['
 }
 
 /**
- *  Get list of blocked ips, with offset
+ *  Get list of dropped ips, with offset
  */
 $reloadableTableContent = $nftablesIpController->getBlockedIpByPort($port, true, $reloadableTableOffset);
 
 /**
- *  Get list of ALL blocked ips, without offset, for the total count
+ *  Get list of ALL dropped ips, without offset, for the total count
  */
 $reloadableTableTotalItems = count($nftablesIpController->getBlockedIpByPort($port));
 

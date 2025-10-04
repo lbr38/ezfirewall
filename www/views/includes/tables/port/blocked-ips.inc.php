@@ -1,5 +1,5 @@
 <div class="reloadable-table" table="<?= $table ?>" offset="<?= $reloadableTableOffset ?>">
-    <h6 class="margin-top-0 margin-bottom-20">ALL BLOCKED IPs (<?= $reloadableTableTotalItems ?>)</h6>
+    <h6 class="margin-top-0 margin-bottom-20">DROPPED IPs (<?= $reloadableTableTotalItems ?>)</h6>
 
     <?php
     if (empty($reloadableTableContent)) {
@@ -25,7 +25,7 @@
                     </div>
                 </div>
 
-                <p><span class="label-black"><?= $item['Protocol'] ?></span></p>
+                <p><code><?= $item['Protocol'] ?></code></p>
                 <p class="font-size-14"><?= $item['Count'] ?></p>                
             </div>
             <?php

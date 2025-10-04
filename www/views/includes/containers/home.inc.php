@@ -2,12 +2,12 @@
     <div class="div-generic-blue">
         <div class="flex column-gap-10">
             <img src="/assets/icons/info.svg" class="icon-np mediumopacity-cst">
-            <p>Most blocked IP is <a href="/ip?ip=<?= $mostBlockedIP['Source_ip'] ?>" target="_blank" rel="noopener"><span class="label-black"><?= $mostBlockedIP['Source_ip'] ?></span></a> (blocked <?= $mostBlockedIP['count'] ?> times since <?= $firstDate ?>)</p>
+            <p>Most dropped IP is <a href="/ip?ip=<?= $mostBlockedIP['Source_ip'] ?>" target="_blank" rel="noopener"><code><?= $mostBlockedIP['Source_ip'] ?></code></a> (blocked <?= $mostBlockedIP['count'] ?> times since <?= $firstDate ?>)</p>
         </div>
         
         <div class="flex column-gap-10 margin-top-10">
             <img src="/assets/icons/info.svg" class="icon-np mediumopacity-cst">
-            <p>Most blocked port is <a href="/port?port=<?= $mostBlockedPort['port'] ?>" target="_blank" rel="noopener"><span class="label-black"><?= $mostBlockedPort['port'] ?> (<?= $mostBlockedPort['protocol'] ?>)</span></a> (blocked <?= $mostBlockedPort['count'] ?> times since <?= $firstDate ?>)</p>
+            <p>Most dropped port is <a href="/port?port=<?= $mostBlockedPort['port'] ?>" target="_blank" rel="noopener"><code><?= $mostBlockedPort['port'] ?>/<?= $mostBlockedPort['protocol'] ?></code></a> (blocked <?= $mostBlockedPort['count'] ?> times since <?= $firstDate ?>)</p>
         </div>
     </div>
 
@@ -40,13 +40,15 @@
 
     <div class="grid grid-rfr-1-2 column-gap-15 div-generic-blue">
         <?php
-        \Controllers\Layout\Table\Render::render('charts/blocked-ips'); ?>
+        \Controllers\Layout\Table\Render::render('home/dropped-ips-count');
+        \Controllers\Layout\Table\Render::render('home/dropped-ips-date');
+        ?>
     </div>
 
     <script>
         $(document).ready(function() {
-            mychart.horizontalBar('top-source-ip-chart');
-            mychart.horizontalBar('top-destination-ports-chart');
+            new AsyncChart('horizontalBar', 'top-source-ip-chart', true, 120000);
+            new AsyncChart('horizontalBar', 'top-destination-ports-chart', true, 120000);
         });
     </script>
 </section>

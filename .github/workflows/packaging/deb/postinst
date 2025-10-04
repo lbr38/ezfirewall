@@ -7,6 +7,7 @@ find /opt/ezfirewall/www -type d -exec chmod 755 {} \;
 find /opt/ezfirewall/www -type f -exec chmod 644 {} \;
 chmod 751 /opt/ezfirewall
 chmod 750 /opt/ezfirewall/ezfirewall.py
+chmod 644 /opt/ezfirewall/config.yml
 chmod 644 /opt/ezfirewall/version
 chmod 751 /opt/ezfirewall/bin/rsyslog-to-database.py
 

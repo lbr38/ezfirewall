@@ -50,7 +50,7 @@
 
     <script>
         $(document).ready(function () {
-            mychart.pie('top-blocked-ports-chart');
+            new AsyncChart('pie', 'top-blocked-ports-chart', true, 120000);
             myiplocate.locateReplace('.ip-location');
         });
     </script>

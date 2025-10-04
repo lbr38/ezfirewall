@@ -16,6 +16,10 @@ class Autoloader
             define('DATA_DIR', '/var/lib/ezfirewall');
         }
 
+        if (!defined('CONFIG')) {
+            define('CONFIG', '/opt/ezfirewall/config.yml');
+        }
+
         if (!defined('DB')) {
             define('DB', DATA_DIR . '/ezfirewall.db');
         }

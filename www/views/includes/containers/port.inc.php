@@ -6,7 +6,7 @@
 
         <div class="grid grid-rfr-1-2 column-gap-15">
             <div>
-                <p><span class="label-black"><?= $port ?>/TCP</span></p>
+                <p><code><?= $port ?>/TCP</code></p>
 
                 <div class="relative">
                     <div id="top-blocked-ips-tcp-chart-loading" class="loading-veil">
@@ -18,7 +18,7 @@
             </div>
 
             <div>
-                <p><span class="label-black"><?= $port ?>/UDP</span></p>
+                <p><code><?= $port ?>/UDP</code></p>
 
                 <div class="relative">
                     <div id="top-blocked-ips-udp-chart-loading" class="loading-veil">
@@ -38,8 +38,8 @@
 
     <script>
         $(document).ready(function () {
-            mychart.pie('top-blocked-ips-tcp-chart');
-            mychart.pie('top-blocked-ips-udp-chart');
+            new AsyncChart('pie', 'top-blocked-ips-tcp-chart', true, 120000);
+            new AsyncChart('pie', 'top-blocked-ips-udp-chart', true, 120000);
         });
     </script>
 </section>

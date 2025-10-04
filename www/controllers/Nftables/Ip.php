@@ -15,13 +15,24 @@ class Ip extends Nftables
     }
 
     /**
+     * Return all drops
+     * It is possible to filter by IP address
+     * It is possible to add an offset to the request
+     * @return array
+     */
+    public function getDrop(string $ip = null, bool $withOffset = false, int $offset = 0, bool $count = false) : array
+    {
+        return $this->model->getDrop($ip, $withOffset, $offset, $count);
+    }
+
+    /**
      * Return all blocked IP
      * It is possible to add an offset to the request
      * @return array
      */
-    public function getBlockedIP(bool $withOffset = false, int $offset = 0) : array
+    public function getBlockedIP(bool $withOffset = false, int $offset = 0, bool $count = false) : array
     {
-        return $this->model->getBlockedIP($withOffset, $offset);
+        return $this->model->getBlockedIP($withOffset, $offset, $count);
     }
 
     /**
