@@ -192,3 +192,75 @@ jobs:
       # Tests some params
       - name: "Run test: print help"
         run: python3 /opt/ezfirewall/ezfirewall.py --help
+
+
+  # Try to install package on Alma Linux 9
+  install-almalinux9:
+    name: Install on Alma Linux 9
+    needs:
+      build-rpm
+    runs-on: ubuntu-latest
+    container:
+      image: almalinux:9
+      options: --user root
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get ezfirewall version
+        run: echo "VERSION=$(cat ${GITHUB_WORKSPACE}/version)" >> $GITHUB_ENV
+
+      - name: Install EPEL repositories
+        run: dnf install epel-release -y
+
+      - name: Update system
+        run: dnf update -y
+
+      # Download builded rpm package artifact
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ezfirewall-test-build-${{ env.VERSION }}.noarch.rpm
+
+      - name: Install package
+        run: dnf --nogpgcheck localinstall -y ./ezfirewall-test-build-${{ env.VERSION }}.noarch.rpm
+
+      # Tests some params
+      - name: "Run test: print help"
+        run: python3 /opt/ezfirewall/ezfirewall.py --help
+
+
+  # Try to install package on Alma Linux 10
+  install-almalinux10:
+    name: Install on Alma Linux 10
+    needs:
+      build-rpm
+    runs-on: ubuntu-latest
+    container:
+      image: almalinux:10
+      options: --user root
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get ezfirewall version
+        run: echo "VERSION=$(cat ${GITHUB_WORKSPACE}/version)" >> $GITHUB_ENV
+
+      - name: Install EPEL repositories
+        run: dnf install epel-release -y
+
+      - name: Update system
+        run: dnf update -y
+
+      # Download builded rpm package artifact
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ezfirewall-test-build-${{ env.VERSION }}.noarch.rpm
+
+      - name: Install package
+        run: dnf --nogpgcheck localinstall -y ./ezfirewall-test-build-${{ env.VERSION }}.noarch.rpm
+
+      # Tests some params
+      - name: "Run test: print help"
+        run: python3 /opt/ezfirewall/ezfirewall.py --help

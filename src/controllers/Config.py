@@ -15,6 +15,8 @@ class Config:
         # If no configuration file exists, generate it
         if not Path(self.config).is_file():
             self.generate()
+            # Set permissions
+            Path(self.config).chmod(0o644)
 
 
     #-----------------------------------------------------------------------------------------------

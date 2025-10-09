@@ -31,7 +31,8 @@ class IpLocate {
                     resolve(result);
                 },
                 error: function (jqXHR, textStatus, thrownError) {
-                    reject('Failed to retrieve location for this IP address: ' + thrownError);
+                    const errorMsg = thrownError || jqXHR.responseText || textStatus || 'Unknown error';
+                    reject('Failed to retrieve location for this IP address: ' + errorMsg);
                 },
             });
         });
