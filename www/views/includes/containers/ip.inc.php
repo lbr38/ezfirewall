@@ -24,7 +24,7 @@
 
     <div class="div-generic-blue grid grid-rfr-1-2 column-gap-15">
         <div>
-            <h6 class="margin-top-0 margin-bottom-20">LOCATION</h6>
+            <h6 class="margin-top-0 margin-bottom-20">IP LOCATION</h6>
 
             <div class="ip-location grid grid-2 column-gap-15 row-gap-15" ip="<?= $ip ?>">            
                 <p>Country</p>
@@ -45,6 +45,11 @@
                 <p>ISP</p>
                 <p class="ip-location-isp">Loading...</p>
             </div>
+        </div>
+
+        <div>
+            <?php
+            \Controllers\Layout\Table\Render::render('ip/dropped-date'); ?>
         </div>
     </div>
 

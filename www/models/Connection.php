@@ -31,6 +31,12 @@ class Connection extends SQLite3
         $this->exec('pragma synchronous = normal;');
         $this->exec('pragma temp_store = memory;');
         $this->exec('pragma mmap_size = 30000000000;');
+        // Use a larger cache size
+        $this->exec('pragma cache_size = -200000;');
+        // Store temporary tables in memory
+        $this->exec('pragma temp_store = MEMORY;');
+        // Set automatic checkpointing for WAL mode
+        $this->exec('pragma wal_autocheckpoint = 1000;');
     }
 
     /**
