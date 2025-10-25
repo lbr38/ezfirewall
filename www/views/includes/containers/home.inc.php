@@ -38,7 +38,7 @@
         </div>
     </div>
 
-    <div class="grid grid-rfr-1-2 column-gap-15 div-generic-blue">
+    <div class="grid grid-rfr-1-2 column-gap-50 row-gap-40 div-generic-blue">
         <?php
         \Controllers\Layout\Table\Render::render('home/dropped-ips-count');
         \Controllers\Layout\Table\Render::render('home/dropped-ips-date'); ?>

@@ -2,7 +2,7 @@
     <h3 class="margin-top-10">IP <?= $ip ?></h3>
 
     <div class="div-generic-blue">
-        <div class="grid grid-rfr-1-2 column-gap-15">
+        <div class="grid grid-rfr-1-2 column-gap-15 row-gap-40">
             <div>
                 <h6 class="margin-top-0 margin-bottom-20">TOP 10 BLOCKED PORTS FOR <?= $ip ?></h6>
 
@@ -22,7 +22,7 @@
         </div>
     </div>
 
-    <div class="div-generic-blue grid grid-rfr-1-2 column-gap-15">
+    <div class="div-generic-blue grid grid-rfr-1-2 column-gap-15 row-gap-40">
         <div>
             <h6 class="margin-top-0 margin-bottom-20">IP LOCATION</h6>
 

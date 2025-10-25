@@ -187,7 +187,6 @@ jobs:
           release_name: ${{ env.VERSION }}
           body: |
             **Changes**
-              - Performance improvements
               - Various UI fixes and improvements
           draft: false
           prerelease: false
