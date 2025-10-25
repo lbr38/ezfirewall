@@ -4,7 +4,7 @@
     <div class="div-generic-blue">
         <h6 class="margin-top-0 margin-bottom-20">TOP 10 BLOCKED IP ON PORT <?= $port ?></h6>
 
-        <div class="grid grid-rfr-1-2 column-gap-15">
+        <div class="grid grid-rfr-1-2 column-gap-15 row-gap-40">
             <div>
                 <p><code><?= $port ?>/TCP</code></p>
 
