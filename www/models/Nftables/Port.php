@@ -106,4 +106,30 @@ class Port extends \Models\Model
 
         return $data;
     }
+
+    /**
+     * Count the number of dropped packets for a specific date and port
+     * @param string $date
+     * @param string $port
+     * @return int
+     */
+    public function countByDatePort(string $date, string $port) : int
+    {
+        $count = 0;
+
+        try {
+            $stmt = $this->db->prepare('SELECT COUNT(*) as Count FROM nftables_drop WHERE Date = :date AND Dest_port = :port');
+            $stmt->bindValue(':date', $date);
+            $stmt->bindValue(':port', $port);
+            $result = $stmt->execute();
+        } catch (Exception $e) {
+            $this->error($e->getMessage());
+        }
+
+        if ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $count = (int)$row['Count'];
+        }
+
+        return $count;
+    }
 }

@@ -17,7 +17,7 @@ class Ip extends \Models\Model
      * It is possible to add an offset to the request
      * @return array
      */
-    public function getDrop(string $ip = null, bool $withOffset, int $offset, bool $count) : array
+    public function getDrop(string $ip = '', bool $withOffset, int $offset, bool $count) : array
     {
         $data = [];
 
@@ -208,5 +208,31 @@ class Ip extends \Models\Model
         }
 
         return $ip;
+    }
+
+    /**
+     * Count the number of dropped packets for a specific date and IP
+     * @param string $date
+     * @param string $ip
+     * @return int
+     */
+    public function countByDateIp(string $date, string $ip) : int
+    {
+        $count = 0;
+
+        try {
+            $stmt = $this->db->prepare('SELECT COUNT(*) as Count FROM nftables_drop WHERE Date = :date AND Source_ip = :ip');
+            $stmt->bindValue(':date', $date);
+            $stmt->bindValue(':ip', $ip);
+            $result = $stmt->execute();
+        } catch (Exception $e) {
+            $this->error($e->getMessage());
+        }
+
+        if ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $count = (int)$row['Count'];
+        }
+
+        return $count;
     }
 }

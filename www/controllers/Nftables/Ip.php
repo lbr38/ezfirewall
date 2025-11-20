@@ -2,8 +2,6 @@
 
 namespace Controllers\Nftables;
 
-use Exception;
-
 class Ip extends Nftables
 {
     protected $model;
@@ -20,7 +18,7 @@ class Ip extends Nftables
      * It is possible to add an offset to the request
      * @return array
      */
-    public function getDrop(string $ip = null, bool $withOffset = false, int $offset = 0, bool $count = false) : array
+    public function getDrop(string $ip = '', bool $withOffset = false, int $offset = 0, bool $count = false) : array
     {
         return $this->model->getDrop($ip, $withOffset, $offset, $count);
     }
@@ -49,7 +47,7 @@ class Ip extends Nftables
      * Return the top 10 IP address that have been blocked
      * @return array
      */
-    public function getTopTenBlockedIp(string $date = null) : array
+    public function getTopTenBlockedIp(string $date = '') : array
     {
         return $this->model->getTopTenBlockedIp($date);
     }
@@ -70,5 +68,16 @@ class Ip extends Nftables
     public function getMostBlockedIP() : array
     {
         return $this->model->getMostBlockedIP();
+    }
+
+    /**
+     * Count the number of dropped packets for a specific date and IP
+     * @param string $date
+     * @param string $ip
+     * @return int
+     */
+    public function countByDateIp(string $date, string $ip) : int
+    {
+        return $this->model->countByDateIp($date, $ip);
     }
 }

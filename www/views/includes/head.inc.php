@@ -15,6 +15,7 @@
     <link rel="stylesheet" type="text/css" href="/resources/styles/components/label.css?<?= VERSION ?>">
     <link rel="stylesheet" type="text/css" href="/resources/styles/components/tooltip.css?<?= VERSION ?>">
     <link rel="stylesheet" type="text/css" href="/resources/styles/components/alert.css?<?= VERSION ?>">
+    <link rel="stylesheet" type="text/css" href="/resources/styles/components/scrollbar.css?<?= VERSION ?>">
     <link rel="stylesheet" type="text/css" href="/resources/styles/ezfirewall.css?<?= VERSION ?>">
 
     <!-- Load pre JS -->

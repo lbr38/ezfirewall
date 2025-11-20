@@ -2,8 +2,6 @@
 
 namespace Controllers\Nftables;
 
-use Exception;
-
 class Port extends Nftables
 {
     protected $model;
@@ -37,8 +35,19 @@ class Port extends Nftables
      * Return the top 10 destination port that have been blocked
      * @return array
      */
-    public function getTopTenDestinationPorts(string $date = null, string $ip = null) : array
+    public function getTopTenDestinationPorts(string $date = '', string $ip = '') : array
     {
         return $this->model->getTopTenDestinationPorts($date, $ip);
+    }
+
+    /**
+     * Count the number of dropped packets for a specific date and port
+     * @param string $date
+     * @param string $port
+     * @return int
+     */
+    public function countByDatePort(string $date, string $port) : int
+    {
+        return $this->model->countByDatePort($date, $port);
     }
 }
