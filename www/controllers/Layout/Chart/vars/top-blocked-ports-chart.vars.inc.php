@@ -26,7 +26,7 @@ $ip = $_GET['ip'];
 /**
  * Get the top 10 destination port that have been blocked
  */
-$topBlockedPorts = $nftablesPortController->getTopTenDestinationPorts(null, $ip);
+$topBlockedPorts = $nftablesPortController->getTopTenDestinationPorts('', $ip);
 
 /**
  * Prepare chart data

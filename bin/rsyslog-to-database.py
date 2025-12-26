@@ -11,7 +11,7 @@ import yaml
 
 # Global variables for batch processing
 batch_data = []
-BATCH_SIZE = 50 # Number of messages to wait before writing to database
+BATCH_SIZE = 5 # Number of messages to wait before writing to database
 
 # Function to parse a single message
 def parse_message(message: str):
@@ -124,6 +124,8 @@ def write_batch_to_database(batch_data):
     cursor.execute("CREATE INDEX IF NOT EXISTS nftables_drop_dest_port_index ON nftables_drop (Dest_port)")
     cursor.execute("CREATE INDEX IF NOT EXISTS nftables_drop_dest_port_protocol_index ON nftables_drop (Dest_port, Protocol)")
     cursor.execute("CREATE INDEX IF NOT EXISTS nftables_drop_source_ip_index ON nftables_drop (Source_ip)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS nftables_drop_date_ip_index ON nftables_drop (Date, Source_ip)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS nftables_drop_date_port_index ON nftables_drop (Date, Dest_port)")
 
     #
     # Insert all messages in batch using executemany for better performance
@@ -165,8 +167,8 @@ def clean():
     # Default to 30 days if config file is not available or reading fails
     retention_days = 30
 
-    # If today is not sunday and hour is not 0, skip cleanup
-    if datetime.now().weekday() != 6 or datetime.now().hour != 0:
+    # If today is not sunday, skip cleanup
+    if datetime.now().weekday() != 6:
         return
 
     # Get latest cleanup run
@@ -198,15 +200,17 @@ def clean():
 
     # Delete logs older than x days
     cursor.execute("DELETE FROM nftables_drop WHERE Date < ?", (date,))
+    con.commit()
 
     # Vacuum database to free space
-    cursor.execute("VACUUM;")
+    cursor.execute("VACUUM")
+    con.commit()
 
     # Analyze database to optimize query performance
-    cursor.execute("ANALYZE;")
-
-    # Commit changes and close connection
+    cursor.execute("ANALYZE")
     con.commit()
+
+    # Close connection
     con.close()
 
     # Write last cleanup date to file

@@ -187,6 +187,7 @@ jobs:
           release_name: ${{ env.VERSION }}
           body: |
             **Changes**
+              - Added charts displaying drops over the last 15 days
               - Various UI fixes and improvements
           draft: false
           prerelease: false
@@ -204,15 +205,15 @@ jobs:
       # Upload package to repository
       - name: Upload packages to repositories
         run: | 
-          curl --fail-with-body -L --post301 -s -q -X POST -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -F "files=@$HOME/assets/ezfirewall_${{ env.VERSION }}_all.deb" https://packages.repomanager.net/api/v2/snapshot/247/upload
-          curl --fail-with-body -L --post301 -s -q -X POST -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -F "files=@$HOME/assets/ezfirewall-${{ env.VERSION }}.noarch.rpm" https://packages.repomanager.net/api/v2/snapshot/248/upload
-          curl --fail-with-body -L --post301 -s -q -X POST -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -F "files=@$HOME/assets/ezfirewall-${{ env.VERSION }}.noarch.rpm" https://packages.repomanager.net/api/v2/snapshot/550/upload
-          curl --fail-with-body -L --post301 -s -q -X POST -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -F "files=@$HOME/assets/ezfirewall-${{ env.VERSION }}.noarch.rpm" https://packages.repomanager.net/api/v2/snapshot/551/upload
+          curl --fail-with-body -L --post301 -s -q -X POST -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -F "files=@$HOME/assets/ezfirewall_${{ env.VERSION }}_all.deb" ${{ secrets.REPOSITORY_URL }}/api/v2/snapshot/247/upload
+          curl --fail-with-body -L --post301 -s -q -X POST -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -F "files=@$HOME/assets/ezfirewall-${{ env.VERSION }}.noarch.rpm" ${{ secrets.REPOSITORY_URL }}/api/v2/snapshot/248/upload
+          curl --fail-with-body -L --post301 -s -q -X POST -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -F "files=@$HOME/assets/ezfirewall-${{ env.VERSION }}.noarch.rpm" ${{ secrets.REPOSITORY_URL }}/api/v2/snapshot/550/upload
+          curl --fail-with-body -L --post301 -s -q -X POST -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -F "files=@$HOME/assets/ezfirewall-${{ env.VERSION }}.noarch.rpm" ${{ secrets.REPOSITORY_URL }}/api/v2/snapshot/551/upload
 
       # Rebuild repositories metadata
       - name: Rebuild repositories
         run: |
-          curl --fail-with-body -X PUT -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -d '{"gpgSign":"true"}' https://packages.repomanager.net/api/v2/snapshot/247/rebuild
-          curl --fail-with-body -X PUT -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -d '{"gpgSign":"true"}' https://packages.repomanager.net/api/v2/snapshot/248/rebuild
-          curl --fail-with-body -X PUT -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -d '{"gpgSign":"true"}' https://packages.repomanager.net/api/v2/snapshot/550/rebuild
-          curl --fail-with-body -X PUT -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -d '{"gpgSign":"true"}' https://packages.repomanager.net/api/v2/snapshot/551/rebuild
+          curl --fail-with-body -X PUT -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -d '{"gpgSign":"true"}' ${{ secrets.REPOSITORY_URL }}/api/v2/snapshot/247/rebuild
+          curl --fail-with-body -X PUT -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -d '{"gpgSign":"true"}' ${{ secrets.REPOSITORY_URL }}/api/v2/snapshot/248/rebuild
+          curl --fail-with-body -X PUT -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -d '{"gpgSign":"true"}' ${{ secrets.REPOSITORY_URL }}/api/v2/snapshot/550/rebuild
+          curl --fail-with-body -X PUT -H "Authorization: Bearer ${{ secrets.REPOSITORY_TOKEN }}" -d '{"gpgSign":"true"}' ${{ secrets.REPOSITORY_URL }}/api/v2/snapshot/551/rebuild

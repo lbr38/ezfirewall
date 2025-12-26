@@ -43,13 +43,47 @@ apt update
 apt install ezfirewall
 ```
 
-<img src="https://github.com/user-attachments/assets/f14deb0d-bf59-4147-844b-b8a2762f7f13" width="18" /> **RHEL 8 based OS (CentOS, Alma...) and newer**
+<img src="https://github.com/user-attachments/assets/f14deb0d-bf59-4147-844b-b8a2762f7f13" width="18" /> **RHEL 8 based OS (RedHat, CentOS, Alma...)**
 
 ```shell
 cat << EOF > /etc/yum.repos.d/ezfirewall.repo
 [ezfirewall]
 name=ezfirewall repo on packages.repomanager.net
 baseurl=https://packages.repomanager.net/repo/rpm/ezfirewall/8/prod
+enabled=1
+gpgkey=https://packages.repomanager.net/repo/gpgkeys/packages.repomanager.net.pub
+gpgcheck=1
+EOF
+```
+
+```shell
+dnf install ezfirewall
+```
+
+<img src="https://github.com/user-attachments/assets/f14deb0d-bf59-4147-844b-b8a2762f7f13" width="18" /> **RHEL 9 based OS (RedHat, CentOS, Alma...)**
+
+```shell
+cat << EOF > /etc/yum.repos.d/ezfirewall.repo
+[ezfirewall]
+name=ezfirewall repo on packages.repomanager.net
+baseurl=https://packages.repomanager.net/repo/rpm/ezfirewall/9/prod
+enabled=1
+gpgkey=https://packages.repomanager.net/repo/gpgkeys/packages.repomanager.net.pub
+gpgcheck=1
+EOF
+```
+
+```shell
+dnf install ezfirewall
+```
+
+<img src="https://github.com/user-attachments/assets/f14deb0d-bf59-4147-844b-b8a2762f7f13" width="18" /> **RHEL 10 based OS (RedHat, CentOS, Alma...)**
+
+```shell
+cat << EOF > /etc/yum.repos.d/ezfirewall.repo
+[ezfirewall]
+name=ezfirewall repo on packages.repomanager.net
+baseurl=https://packages.repomanager.net/repo/rpm/ezfirewall/10/prod
 enabled=1
 gpgkey=https://packages.repomanager.net/repo/gpgkeys/packages.repomanager.net.pub
 gpgcheck=1

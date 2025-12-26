@@ -539,13 +539,13 @@ class AsyncChart
 
             // Options
             // Title
-            window.myLine.options.plugins.title.display = this.chartOptions.title.display || true;
+            window.myLine.options.plugins.title.display = this.chartOptions.title.display !== undefined ? this.chartOptions.title.display : true;
             window.myLine.options.plugins.title.text = this.chartOptions.title.text || '';
             window.myLine.options.plugins.title.position = this.chartOptions.title.position || 'top';
 
             // Legend
             if (this.chartOptions.legend) {
-                window.myLine.options.plugins.legend.display = this.chartOptions.legend.display || true;
+                window.myLine.options.plugins.legend.display = this.chartOptions.legend.display !== undefined ? this.chartOptions.legend.display : true;
                 window.myLine.options.plugins.legend.position = this.chartOptions.legend.position || 'bottom';
             }
 

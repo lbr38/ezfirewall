@@ -2,8 +2,6 @@
 
 namespace Controllers\Nftables;
 
-use Exception;
-
 class Nftables
 {
     protected $model;
@@ -29,5 +27,15 @@ class Nftables
     public function getLastDate() : string
     {
         return $this->model->getLastDate();
+    }
+
+    /**
+     * Count the number of dropped packets for a specific date
+     * @param string $date
+     * @return int
+     */
+    public function countByDate(string $date) : int
+    {
+        return $this->model->countByDate($date);
     }
 }

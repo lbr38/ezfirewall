@@ -13,12 +13,12 @@ if (!empty($_COOKIE['tables/home/dropped-ips-date/offset']) and is_numeric($_COO
 /**
  *  Get list of dropped IPs, with offset
  */
-$reloadableTableContent = $nftablesIpController->getDrop(null, true, $reloadableTableOffset);
+$reloadableTableContent = $nftablesIpController->getDrop('', true, $reloadableTableOffset);
 
 /**
  *  Get total count of dropped IPs
  */
-$reloadableTableTotalItems = $nftablesIpController->getDrop(null, false, 0, true)[0]['Count'];
+$reloadableTableTotalItems = $nftablesIpController->getDrop('', false, 0, true)[0]['Count'];
 
 /**
  *  Count total pages for the pagination

@@ -56,4 +56,28 @@ class Nftables extends \Models\Model
 
         return $date;
     }
+
+    /**
+     * Count the number of dropped packets for a specific date
+     * @param string $date
+     * @return int
+     */
+    public function countByDate(string $date) : int
+    {
+        $count = 0;
+
+        try {
+            $stmt = $this->db->prepare('SELECT COUNT(*) AS Count FROM nftables_drop WHERE Date = :date');
+            $stmt->bindValue(':date', $date, SQLITE3_TEXT);
+            $result = $stmt->execute();
+        } catch (Exception $e) {
+            $this->error($e->getMessage());
+        }
+
+        if ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $count = (int)$row['Count'];
+        }
+
+        return $count;
+    }
 }

@@ -22,6 +22,18 @@
         </div>
     </div>
 
+    <div class="div-generic-blue">
+        <h6 class="margin-top-0">DROP COUNT BY DAY</h6>
+
+        <div class="relative">
+            <div id="drop-count-by-day-ip-chart-loading" class="loading-veil">
+                <img src="/assets/icons/loading.svg" class="icon-np">
+            </div>
+
+            <canvas id="drop-count-by-day-ip-chart" class="min-height-400"></canvas>
+        </div>
+    </div>
+
     <div class="div-generic-blue grid grid-rfr-1-2 column-gap-15 row-gap-40">
         <div>
             <h6 class="margin-top-0 margin-bottom-20">IP LOCATION</h6>
@@ -56,6 +68,7 @@
     <script>
         $(document).ready(function () {
             new AsyncChart('pie', 'top-blocked-ports-chart', true, 120000);
+            new AsyncChart('line', 'drop-count-by-day-ip-chart', false, 120000);
             myiplocate.locateReplace('.ip-location');
         });
     </script>
