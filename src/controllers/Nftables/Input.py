@@ -4,194 +4,200 @@
 import re
 
 # Import classes
-from src.controllers.Nftables.Nftables import Nftables
+from src.controllers.Nftables.JsonBuilder import JsonBuilder
 from src.controllers.Source import Source
 
 class Input:
     def __init__(self):
-        self.nftablesController = Nftables()
+        self.jsonBuilder = JsonBuilder()
         self.sourceController = Source()
-
-        self.rules = {
-            'ipv4': {
-                'allow': [],
-                'drop': []
-            },
-            'ipv6': {
-                'allow': [],
-                'drop': []
-            }
-        }
-
+        
+        # Track IPs for drop sets only - allow rules are individual
+        self.interface_drop_ips = {}   # {interface: {family: [ips]}}
+        
+        # Track global IPs for 'any' interface - drop only
+        self.any_drop_ips = {'ip': [], 'ip6': []}   # Global drop IPs
 
     #-----------------------------------------------------------------------------------------------
     #
-    #   Generate allow input rules
+    #   Generate allow input rules with sets
     #
     #-----------------------------------------------------------------------------------------------
-    def generate_allow_rules(self, ip_version: str, interface: str, sources: list, protocol: str, ports: list, state: str = 'new, related, established'):
-        # Default arguments
-        interface_arg = ''
-        ports_arg = ''
-
-        #
+    def generate_allow_rules(self, ip_version: str, interface: str, sources: list, protocol: str, ports: list, state: str = 'new,related,established'):
+        """Generate individual allow rules for granular port/protocol control"""
+        
         # Set the IP family based on the IP version
-        #
-        if ip_version == 'ipv4':
-            ip_family = 'ip'
-        if ip_version == 'ipv6':
-            ip_family = 'ip6'
+        family = 'ip' if ip_version == 'ipv4' else 'ip6'
+        
+        # If sources is not iterable or empty, skip
+        if not sources:
+            return
 
-        #
-        # If interface is not 'any', then set the interface on which the rule will be applied
-        #
-        if interface != 'any':
-            interface_arg = 'iifname ' + interface
-
-        #
-        # Generate the ports list, separated by commas
-        # Only if ports is defined and is not 'any'
-        #
-        if ports and not 'any' in ports:
-            ports_arg = 'dport {' + ','.join(map(str, ports)) + '}'
-
+        # Create individual rule for each source IP
         for source in sources:
-            source = str(source).strip()
-
-            #
-            # If source is not an IP address, get the IP address from the sources files
-            #
-            if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}(\/\d{1,3})?$', source):
-                sourceIp = self.sourceController.getIp(source)
-            else:
-                sourceIp = source
-
-            #
-            # Allow traffic based on the specified protocol
-            #
-            # If both port and protocol are 'any', allow all traffic for the specified source
-            if protocol == 'any' and 'any' in ports:
-                self.rules[str(ip_version)]['allow'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' ct state ' + state + ' accept')
-                continue
-
-            # If protocol is 'any', use meta l4proto {tcp, udp} to match both TCP and UDP
-            if protocol == 'any':
-                self.rules[str(ip_version)]['allow'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' meta l4proto {tcp, udp} th ' + ports_arg + ' ct state ' + state + ' accept')
-
-            # If protocol is 'tcp' or 'udp'
-            if protocol == 'tcp' or protocol == 'udp':
-                # If there is no port specified, use meta l4proto to match only the protocol without ports
-                if ports_arg == '':
-                    protocol = 'meta l4proto ' + protocol
-
-                self.rules[str(ip_version)]['allow'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' ' + protocol + ' ' + ports_arg + ' ct state ' + state + ' accept')
-
-            # If protocol is 'icmp'
-            if protocol == 'icmp':
-                self.rules[str(ip_version)]['allow'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' icmp type echo-request accept')
-
+            # Get source IP address
+            ip = self.sourceController.getIp(source)
+    
+            # Add allow rule
+            self.jsonBuilder.add_allow_rule(family, interface, ip, protocol, ports, state)
 
     #-----------------------------------------------------------------------------------------------
     #
-    #   Generate drop input rules
+    #   Generate drop input rules with sets
     #
     #-----------------------------------------------------------------------------------------------
     def generate_drop_rules(self, ip_version: str, interface: str, sources: list, protocol: str, ports: list):
-        # Default arguments
-        interface_arg = ''
-        ports_arg = ''
-
-        #
+        """Generate drop rules using sets for IP management"""
+        
         # Set the IP family based on the IP version
-        #
-        if ip_version == 'ipv4':
-            ip_family = 'ip'
-        if ip_version == 'ipv6':
-            ip_family = 'ip6'
-
-        #
-        # If interface is not 'any', then set the interface on which the rule will be applied
-        #
-        if interface != 'any':
-            interface_arg = 'iifname ' + interface
-
-        #
-        # Generate the ports list, separated by commas
-        # Only if ports is defined and is not 'any'
-        #
-        if ports and not 'any' in ports:
-            ports_arg = 'dport {' + ','.join(map(str, ports)) + '}'
-
+        family = 'ip' if ip_version == 'ipv4' else 'ip6'
+        
+        # Collect IPs from sources
+        ips = []
         for source in sources:
-            source = str(source).strip()
+            # Get source IP address
+            ip = self.sourceController.getIp(source)
+            ips.append(ip)
+        
+        # Validate IP list for conflicts
+        if not self.jsonBuilder.validate_ip_list(ips, interface, f"drop rules ({protocol})"):
+            raise Exception(f"IP address conflicts detected in {interface} drop rules. Please fix the conflicts and try again.")
 
-            #
-            # If source is not an IP address, get the IP address from the sources files
-            #
-            if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}(\/\d{1,3})?$', source):
-                sourceIp = self.sourceController.getIp(source)
-            else:
-                sourceIp = source
-
-            #
-            # Drop traffic based on the specified protocol and ports
-            #
-            # If both port and protocol are 'any', drop all traffic for the specified source
-            if protocol == 'any' and 'any' in ports:
-                self.rules[str(ip_version)]['drop'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' drop')
-                continue
-
-            # If protocol is 'any', use meta l4proto {tcp, udp} to match both TCP and UDP
-            if protocol == 'any':
-                self.rules[str(ip_version)]['drop'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' meta l4proto {tcp, udp} th ' + ports_arg + ' drop')
-
-            # If protocol is 'tcp' or 'udp'
-            if protocol == 'tcp' or protocol == 'udp':
-                # If there is no port specified, use meta l4proto to match only the protocol without ports
-                if ports_arg == '':
-                    protocol = 'meta l4proto ' + protocol
-
-                self.rules[str(ip_version)]['drop'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' ' + protocol + ' ' + ports_arg + ' drop')
-
-            # If protocol is 'icmp'
-            if protocol == 'icmp':
-                self.rules[str(ip_version)]['drop'].append(interface_arg + ' ' + ip_family + ' saddr ' + sourceIp + ' icmp type echo-request drop')
-
+        if interface == 'any':
+            # Handle global 'any' interface
+            for ip in ips:
+                if ip not in self.any_drop_ips[family]:
+                    self.any_drop_ips[family].append(ip)
+        else:
+            # Handle specific interface
+            # Initialize interface tracking if not exists
+            if interface not in self.interface_drop_ips:
+                self.interface_drop_ips[interface] = {'ip': [], 'ip6': []}
+            
+            # Collect all IPs for this interface
+            for ip in ips:
+                if ip not in self.interface_drop_ips[interface][family]:
+                    self.interface_drop_ips[interface][family].append(ip)
 
     #-----------------------------------------------------------------------------------------------
     #
-    #   Write rules and config to nftables configuration file
+    #   Finalize sets and rules
+    #
+    #-----------------------------------------------------------------------------------------------
+    def finalize_sets_and_rules(self):
+        """Add collected DROP IPs to sets - ALLOW rules are already created individually"""
+        
+        # Add global 'any' DROP IPs to their sets
+        for family in ['ip', 'ip6']:
+            if self.any_drop_ips[family]:
+                self.jsonBuilder.add_to_drop_set(family, 'any', self.any_drop_ips[family])
+        
+        # Add IPs to interface-specific drop sets  
+        for interface in self.interface_drop_ips:
+            for family in ['ip', 'ip6']:
+                if self.interface_drop_ips[interface][family]:
+                    # Add IPs to the drop set
+                    self.jsonBuilder.add_to_drop_set(family, interface, self.interface_drop_ips[interface][family])
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Create rules that use the sets
+    #
+    #-----------------------------------------------------------------------------------------------
+    def create_set_based_rules(self, rules_data):
+        """Create DROP rules that use sets - ALLOW rules are already individual"""
+        
+        # Group DROP rules by interface and protocol/ports to avoid duplicates
+        interface_drop_rules = {}
+        
+        for rule_data in rules_data:
+            if rule_data['type'] != 'drop':
+                continue  # Skip allow rules - they're already handled individually
+                
+            ip_version = rule_data['ip_version']
+            interface = rule_data['interface'] 
+            protocol = rule_data['protocol']
+            ports = rule_data['ports']
+            
+            family = 'ip' if ip_version == 'ipv4' else 'ip6'
+            rule_key = f"{interface}_{family}_{protocol}_{','.join(map(str, ports))}_drop"
+            
+            if rule_key not in interface_drop_rules:
+                interface_drop_rules[rule_key] = {
+                    'family': family,
+                    'interface': interface,
+                    'protocol': protocol,
+                    'ports': ports
+                }
+        
+        # Create DROP rules that use the sets
+        for rule_data in interface_drop_rules.values():
+            # Check if we have IPs in the appropriate drop set
+            has_ips = False
+            if rule_data['interface'] == 'any':
+                has_ips = bool(self.any_drop_ips[rule_data['family']])
+            else:
+                has_ips = (rule_data['interface'] in self.interface_drop_ips and 
+                          self.interface_drop_ips[rule_data['interface']][rule_data['family']])
+            
+            if has_ips:
+                self.jsonBuilder.add_drop_rule(
+                    rule_data['family'], 
+                    rule_data['interface'], 
+                    rule_data['protocol'], 
+                    rule_data['ports']
+                )
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Prepare sets for nftables configuration
+    #
+    #-----------------------------------------------------------------------------------------------
+    def prepare_sets(self, content):
+        """Prepare sets for nftables configuration"""
+        self.jsonBuilder.prepare_sets(content)
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Build and apply the complete ruleset
     #
     #-----------------------------------------------------------------------------------------------
     def write(self, config):
-        #
-        # Get the nftables template
-        #
-        with open('/etc/nftables.conf.new', 'r') as infile:
-            file = infile.read()
+        """Build the complete nftables ruleset"""
+        self.jsonBuilder.build_ruleset(config)
 
-        #
-        # Replace the template with the rules
-        # Convert list to string with rules separated by line breaks
-        #
-        file = file.replace('__IPV4_RULES__', '\n        '.join([*self.rules['ipv4']['drop'], *self.rules['ipv4']['allow']]))
-        file = file.replace('__IPV6_RULES__', '\n        '.join([*self.rules['ipv6']['drop'], *self.rules['ipv6']['allow']]))
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Finalize the ruleset
+    #
+    #-----------------------------------------------------------------------------------------------
+    def finalize(self):
+        """Finalize the ruleset by adding final rules"""
+        self.jsonBuilder.finalize_ruleset()
 
-        #
-        # Enable or disable IPv4 and IPv6 logging of dropped packets
-        #
-        file = file.replace('__IPV4_LOG_DROP__', 'log prefix "[nftables-drop] IPv4 inbound denied: " counter drop' if config['ipv4']['log_dropped_traffic'] else '')
-        file = file.replace('__IPV6_LOG_DROP__', 'log prefix "[nftables-drop] IPv6 inbound denied: " counter drop' if config['ipv6']['log_dropped_traffic'] else '')
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Check ruleset validity
+    #
+    #-----------------------------------------------------------------------------------------------
+    def check(self):
+        """Check if the ruleset is valid"""
+        self.jsonBuilder.check()
 
-        #
-        # Set the default policies (accept or drop)
-        #
-        file = file.replace('__IPV4_DEFAULT_POLICY__', config['ipv4']['input_default_policy'])
-        file = file.replace('__IPV6_DEFAULT_POLICY__', config['ipv6']['input_default_policy'])
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Apply the ruleset
+    #
+    #-----------------------------------------------------------------------------------------------
+    def apply(self):
+        """Apply the ruleset to nftables"""
+        self.jsonBuilder.apply()
 
-        #
-        # Write the new file
-        #
-        with open('/etc/nftables.conf.new', 'w') as ofile:
-            ofile.write(file)
-            ofile.close()
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Get ruleset as JSON string (for debugging)
+    #
+    #-----------------------------------------------------------------------------------------------
+    def get_ruleset_json(self):
+        """Get the current ruleset as JSON string"""
+        return self.jsonBuilder.get_ruleset_json()

@@ -17,7 +17,7 @@
 <script src="/resources/js/classes/Cookie.js?<?= VERSION ?>"></script>
 <script src="/resources/js/classes/IpLocate.js?<?= VERSION ?>"></script>
 <script src="/resources/js/classes/Alert.js?<?= VERSION ?>"></script>
-<script src="/resources/js/classes/AsyncChart.js?<?= VERSION ?>"></script>
+<script src="/resources/js/classes/EChart.js?<?= VERSION ?>"></script>
 
 <script>
     const mylayout = new Layout();
@@ -28,12 +28,18 @@
     const myalert = new Alert();
 </script>
 
-
 <?php
+// Additional JS classes and files to load, depending on the current page
+if (__ACTUAL_URI__[1] == '') {
+    $jsFiles = [
+        'events/home/select'
+    ];
+}
+
 if (!empty($jsFiles)) {
     foreach ($jsFiles as $jsFile) {
         if (is_file(ROOT . '/public/resources/js/' . $jsFile . '.js')) {
             echo '<script src="/resources/js/' . $jsFile . '.js?' . VERSION . '"></script>';
         }
     }
-} ?>
+}

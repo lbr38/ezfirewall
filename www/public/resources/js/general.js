@@ -1,4 +1,70 @@
 /**
+ *  Event: get panel
+ */
+$(document).on('click','.get-panel-btn',function () {
+    mypanel.get($(this).attr('panel'));
+});
+
+/**
+ *  Slide panel closing
+ */
+$(document).on('click','.slide-panel-close-btn',function () {
+    mypanel.close($(this).attr('slide-panel'));
+});
+
+/**
+ *  Event: show general log details
+ */
+$(document).on('click','.general-log-show-info-btn',function () {
+    var id = $(this).attr('log-id');
+
+    $('pre.general-log-details[log-id="' + id + '"]').toggle();
+});
+
+/**
+ *  Event: mark general log as read
+ */
+$(document).on('click','.general-log-acquit-btn',function () {
+    var id = $(this).attr('log-id');
+
+    ajaxRequest(
+        // Controller:
+        'general',
+        // Action:
+        'acquitLog',
+        // Data:
+        {
+            id: id
+        },
+        // Print success alert:
+        false,
+        // Print error alert:
+        true,
+        // Reload containers:
+        ['header/general-log-messages']
+    );
+});
+
+/**
+ *  Event: close request log details
+ */
+$(document).on('click','.modal-window-close-btn',function () {
+    $('.modal-window-container[modal="' + $(this).attr('modal') + '"]').remove();
+});
+
+/**
+ *  Event: hide slided window and modal window on escape button press
+ */
+$(document).keyup(function (e) {
+    if (e.key === "Escape") {
+        mypanel.close();
+        myalert.close();
+        myconfirmbox.close();
+        $(".modal-window-container").remove();
+    }
+});
+
+/**
  *  Event: print a copy icon on element with .copy class
  */
 $(document).on('mouseenter','.copy',function () {
@@ -28,9 +94,9 @@ $(document).on('click','.icon-copy, .icon-copy-top-right',function (e) {
     var text = $(this).parent().text().trim();
 
     navigator.clipboard.writeText(text).then(() => {
-        printAlert('Copied to clipboard', 'success');
+        myalert.print('Copied to clipboard', 'success');
     },() => {
-        printAlert('Failed to copy', 'error');
+        myalert.print('Failed to copy', 'error');
     });
 });
 
@@ -41,9 +107,9 @@ $(document).on('click','.copy-input-onclick',function (e) {
     var text = $(this).val().trim();
 
     navigator.clipboard.writeText(text).then(() => {
-        printAlert('Copied to clipboard', 'success');
+        myalert.print('Copied to clipboard', 'success');
     },() => {
-        printAlert('Failed to copy', 'error');
+        myalert.print('Failed to copy', 'error');
     });
 });
 
@@ -75,98 +141,5 @@ $(document).on('click','.reloadable-table-page-btn',function () {
      */
     mycookie.set('tables/' + table + '/offset', offset, 1);
 
-    reloadTable(table, offset);
+    mytable.reload(table, offset);
 });
-
-/**
- * Ajax: Get and reload container
- * @param {*} container
- */
-function reloadContainer(container)
-{
-    return new Promise((resolve, reject) => {
-        try {
-            /**
-             *  If the container to reload does not exist, return
-             */
-            if (!$('.reloadable-container[container="' + container + '"]').length) {
-                return;
-            }
-
-            /**
-             *  Check if container has children with class .veil-on-reload
-             *  If so print a veil on them
-             */
-            printLoadingVeilByParentClass('reloadable-container[container="' + container + '"]');
-
-            ajaxRequest(
-                // Controller:
-                'general',
-                // Action:
-                'getContainer',
-                // Data:
-                {
-                    sourceUrl: window.location.href,
-                    sourceUri: window.location.pathname,
-                    container: container
-                },
-                // Print success alert:
-                false,
-                // Print error alert:
-                true,
-                // Reload container:
-                [],
-                // Execute functions on success:
-                [
-                    // Replace container with itself, with new content
-                    "$('.reloadable-container[container=\"" + container + "\"]').replaceWith(jsonValue.message)",
-                    // Reload opened or closed elements that were opened/closed before reloading
-                    "reloadOpenedClosedElements()"
-                ]
-            ).then(() => {
-                // Hide loading icon
-                hideLoading();
-
-                // Resolve promise
-                resolve('Container reloaded');
-            });
-        } catch (error) {
-            // Reject promise
-            reject('Failed to reload container');
-        }
-    });
-}
-
-/**
- * Ajax: Get and reload table
- * @param {*} table
- * @param {*} offset
- */
-function reloadTable(table, offset = 0)
-{
-    ajaxRequest(
-        // Controller:
-        'general',
-        // Action:
-        'getTable',
-        // Data:
-        {
-            table: table,
-            offset: offset,
-            sourceUrl: window.location.href,
-            sourceUri: window.location.pathname,
-            sourceGetParameters: getGetParams()
-        },
-        // Print success alert:
-        false,
-        // Print error alert:
-        true,
-        // Reload container:
-        [],
-        // Execute functions on success:
-        [
-            // Replace table with itself, with new content
-            "$('.reloadable-table[table=\"" + table + "\"]').replaceWith(jsonValue.message)"
-        ]
-    );
-}

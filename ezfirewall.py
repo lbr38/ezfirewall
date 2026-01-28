@@ -28,20 +28,21 @@ try:
     # Print logo
     appController.print_logo()
 
+    # Parse arguments first
+    argsController.parse()
+
     # Get current configuration
     config = configController.get()
 
-    # Parse arguments
-    argsController.parse()
-
-    # Backup actual nftables configuration
-    nftablesController.backup()
+    # Backup actual nftables configuration only if not dry run
+    if not argsController.dry_run:
+        nftablesController.backup()
 
     # Apply rules (allow, drop)
-    ruleController.apply(config, Args.dry_run, Args.quiet)
+    ruleController.apply(config, argsController.dry_run, argsController.quiet, argsController.no_persist)
 
     # Now that the rules have been applied
-    if Args.dry_run == False:
+    if not argsController.dry_run:
         # TODO
         # Print the applied rules
         # if Args.quiet == False:
@@ -53,7 +54,7 @@ try:
 # If an exception is raised, print the error message
 except Exception as e:
     # If debug mode is enabled, print the stack trace
-    if Args.debug:
+    if argsController.debug:
         print(Fore.RED + ' ✕ ' + str(e) + Style.RESET_ALL + '\n' + 'Stack trace:' + '\n' + traceback.format_exc())
     else:
         print(Fore.RED + ' ✕ ' + str(e) + Style.RESET_ALL)
