@@ -36,7 +36,7 @@ class Rule:
     #   Apply rules
     #
     #-----------------------------------------------------------------------------------------------
-    def apply(self, config: dict, dry_run=False, quiet=False):
+    def apply(self, config: dict, dry_run=False, quiet=False, no_persist=False):
         # First of all, check that the rules files are valid YAML files
         print(' ▪ Checking rules files ', end='')
 
@@ -101,6 +101,15 @@ class Rule:
         #
         print(' ▪ Building rules', end=' ')
 
+        # Prepare sets
+        self.nftablesInputController.prepare_sets(content)
+
+        # Build the base ruleset structure
+        self.nftablesInputController.write(config)
+
+        # Collect all rule data first for set-based approach
+        rules_data = []
+
         # In the rules file, loop through every interface to apply their rules
         for interface in content:
             # Loop through ipv4 and ipv6 sections
@@ -116,36 +125,92 @@ class Rule:
                 for input_output in ['input', 'output']:
                     # If 'input' or 'output' rules are present in the interface
                     if input_output in content[interface][ip_version]:
-                        # Apply drop rules first, then allow rules
-                        for allow_drop in ['drop', 'allow']:
-                            for rule_name in content[interface][ip_version][input_output]:
-                                if allow_drop not in content[interface][ip_version][input_output][rule_name]:
-                                    continue
+                        # Collect all rule data first
+                        for rule_name in content[interface][ip_version][input_output]:
+                            # Retrieve port, protocol, allow and drop values
+                            protocol = content[interface][ip_version][input_output][rule_name]['protocol']
+                            ports = content[interface][ip_version][input_output][rule_name]['ports'] if 'ports' in content[interface][ip_version][input_output][rule_name] else []
 
-                                # Retrieve port, protocol, allow and drop values
+                            # Note: Allow rules will be processed later to ensure proper order (DROP before ALLOW)
+
+                            # Collect drop rules - collect IPs for sets
+                            if 'drop' in content[interface][ip_version][input_output][rule_name]:
+                                sources = content[interface][ip_version][input_output][rule_name]['drop']
+                                
+                                if input_output == 'input':
+                                    # Collect IPs for drop set
+                                    self.nftablesInputController.generate_drop_rules(ip_version, interface, sources, protocol, ports)
+                                    
+                                    # Store rule data for later drop rule creation
+                                    rules_data.append({
+                                        'ip_version': ip_version,
+                                        'interface': interface,
+                                        'protocol': protocol,
+                                        'ports': ports,
+                                        'type': 'drop'
+                                    })
+
+        # Now finalize drop sets first (priority blacklist)
+        self.nftablesInputController.finalize_sets_and_rules()
+        self.nftablesInputController.create_set_based_rules(rules_data)
+
+        # Then process allow rules individually (after drops for proper priority)
+        for interface in content:
+            # Check that this interface exists on the system
+            # Ignore this check if the interface is 'any'
+            if interface != 'any':
+                result = subprocess.run(
+                    ["/usr/sbin/route -n | awk '{print $NF}' | grep -q '" + interface + "'"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    universal_newlines=True,
+                    shell=True
+                )
+
+                if result.returncode != 0:
+                    if not quiet:
+                        print('\n' + Fore.YELLOW + ' ▪ Interface ' + interface + ' does not exist on this system' + Style.RESET_ALL)
+                    continue
+
+            for ip_version in ["ipv4", "ipv6"]:
+                if ip_version not in content[interface]:
+                    continue
+
+                # Ignore this interface if it has no 'input' or 'output' rules
+                if 'input' not in content[interface][ip_version] and 'output' not in content[interface][ip_version]:
+                    continue
+
+                # Process input rules
+                for input_output in ['input', 'output']:
+                    # If 'input' or 'output' rules are present in the interface
+                    if input_output in content[interface][ip_version]:
+                        # Process allow rules only (drops already handled above)
+                        for rule_name in content[interface][ip_version][input_output]:
+                            if 'allow' in content[interface][ip_version][input_output][rule_name]:
+                                # Retrieve port, protocol, allow values
                                 protocol = content[interface][ip_version][input_output][rule_name]['protocol']
                                 ports = content[interface][ip_version][input_output][rule_name]['ports'] if 'ports' in content[interface][ip_version][input_output][rule_name] else []
-                                sources = content[interface][ip_version][input_output][rule_name][allow_drop]
-
-                                # Generate rules
+                                sources = content[interface][ip_version][input_output][rule_name]['allow']
+                                
                                 if input_output == 'input':
-                                    if allow_drop == 'allow':
-                                        self.nftablesInputController.generate_allow_rules(ip_version, interface, sources, protocol, ports)
+                                    # Create individual allow rules (after drops for proper priority)
+                                    self.nftablesInputController.generate_allow_rules(ip_version, interface, sources, protocol, ports)
 
-                                    if allow_drop == 'drop':
-                                        self.nftablesInputController.generate_drop_rules(ip_version, interface, sources, protocol, ports)
-
-        #
-        # Write all rules and config to file
-        #
-        self.nftablesInputController.write(config)
+        # Finalize the ruleset by adding final drop/log rules
+        self.nftablesInputController.finalize()
+        
         print('\r ' + Fore.GREEN + '✔' + Style.RESET_ALL)
+
+        #
+        # Get the built ruleset as JSON
+        #
+        ruleset_json = self.nftablesInputController.get_ruleset_json()
 
         #
         # Check if the rules are valid
         #
         print(' ▪ Checking rules', end=' ')
-        self.nftablesController.check()
+        self.nftablesController.check(ruleset_json)
         print('\r ' + Fore.GREEN + '✔' + Style.RESET_ALL)
 
         #
@@ -153,8 +218,19 @@ class Rule:
         #
         if not dry_run:
             print(' ▪ Applying rules', end=' ')
-            self.nftablesController.apply()
+            self.nftablesController.apply(ruleset_json)
             print('\r ' + Fore.GREEN + '✔' + Style.RESET_ALL)
+            
+            # Save to /etc/nftables.conf for persistence (unless --no-persist is used)
+            if not no_persist:
+                print(' ▪ Saving to /etc/nftables.conf for persistence', end=' ')
+                self.nftablesController.save_to_nftables_conf()
+                print('\r ' + Fore.GREEN + '✔' + Style.RESET_ALL)
+        else:
+            # In dry run mode, show the generated JSON
+            print('\n' + Fore.CYAN + '--- Generated nftables JSON ruleset ---' + Style.RESET_ALL)
+            print(ruleset_json)
+            print(Fore.CYAN + '--- End of ruleset ---' + Style.RESET_ALL + '\n')
 
 
     #-----------------------------------------------------------------------------------------------
@@ -210,9 +286,9 @@ class Rule:
                         # Retrieve port, protocol, allow and drop values
                         protocol = content[interface][ip_version]['input'][rule_name]['protocol']
                         ports = content[interface][ip_version]['input'][rule_name]['ports'] if 'ports' in content[interface][ip_version]['input'][rule_name] else []
-                        if 'allow' in content[interface][ip_version]['input'][rule_name]:
+                        if 'allow' in content[interface][ip_version]['input'][rule_name] and content[interface][ip_version]['input'][rule_name]['allow']:
                             allow = content[interface][ip_version]['input'][rule_name]['allow']
-                        if 'drop' in content[interface][ip_version]['input'][rule_name]:
+                        if 'drop' in content[interface][ip_version]['input'][rule_name] and content[interface][ip_version]['input'][rule_name]['drop']:
                             drop = content[interface][ip_version]['input'][rule_name]['drop']
 
                         # Format allow and drop for table display

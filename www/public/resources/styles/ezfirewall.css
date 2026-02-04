@@ -4,20 +4,14 @@
 }
 
 article {
-    /* height: 80vh; */
     padding: 20px;
 }
 
 #main-charts {
-    min-height: 450px;
     display: flex;
     flex-direction: column;
     row-gap: 20px;
-}
-
-#main-charts canvas {
-    min-height: 500px;
-    max-width: 100%;
+    column-gap: 40px;
 }
 
 .country-flag-icon {

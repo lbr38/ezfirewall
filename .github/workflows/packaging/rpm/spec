@@ -13,6 +13,7 @@ Requires: python3-colorama
 Requires: python3-yaml
 Requires: python3-tabulate
 Requires: python3-dateutil
+Requires: python3-nftables
 
 %description
 Ezfirewall is a simple nftables firewall script written in Python. It allows you to easily manage your firewall rules with YAML files.

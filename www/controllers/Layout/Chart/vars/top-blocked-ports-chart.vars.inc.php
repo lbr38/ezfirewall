@@ -1,41 +1,34 @@
 <?php
+use Controllers\Utils\Generate\Html\Color;
+
 $nftablesPortController = new \Controllers\Nftables\Port();
 $datasets = [];
 $labels = [];
 $options = [];
 
-/**
- * An IP address is required
- */
+// An IP address is required
 if (empty($_GET['ip'])) {
     throw new Exception('IP parameter is required');
 }
 
-/**
- * Validate the IP address format
- */
+// Validate the IP address format
 if (!filter_var($_GET['ip'], FILTER_VALIDATE_IP)) {
     throw new Exception('Invalid IP address format');
 }
 
-/**
- * Get the sanitized IP address
- */
+// Get the sanitized IP address
 $ip = $_GET['ip'];
 
-/**
- * Get the top 10 destination port that have been blocked
- */
+// Get the top 10 destination port that have been blocked
 $topBlockedPorts = $nftablesPortController->getTopTenDestinationPorts('', $ip);
 
-/**
- * Prepare chart data
- */
-$options['title']['text'] = '';
-foreach ($topBlockedPorts as $myPort) {
-    $labels[] = $myPort['Dest_port'];
-    $datasets[0]['data'][] = $myPort['Count'];
+// Prepare chart data
+foreach ($topBlockedPorts as $port) {
+    $labels[] = $port['Dest_port'];
+    $datasets[0]['data'][] = $port['Count'];
+    $datasets[0]['colors'][] = Color::random();
 }
-$datasets[0]['backgroundColor'] = \Controllers\Layout\Color::randomColor(10);
+$options['innerRadius'] = '0%';
+$options['outerRadius'] = '80%';
 
-unset($nftablesPortController, $topBlockedPorts, $myPort);
+unset($nftablesPortController, $topBlockedPorts, $port);

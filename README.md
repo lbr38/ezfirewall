@@ -1,7 +1,7 @@
 Ezfirewall
 ==========
 
-A simple script that will make it easier for you to manage **nftables** firewall rules.
+A python program to easily manage nftables firewall rules using YAML.
 
 - Language: **Python 3.x**
 - Backend: **nftables**
@@ -97,9 +97,14 @@ dnf install ezfirewall
 How to
 ======
 
-**Define source IP addresses**
+1. Define the IP adresses
+2. Define rulesets
+3. Apply
 
-They can be used in the rulesets.
+Define source IP addresses
+--------------------------
+
+Create YAML files with the IP you trust or want to block and give them a name. They can then be used in the rulesets. Example:
 
 ```shell
 vim /opt/ezfirewall/sources/trusted_networks.yml
@@ -108,14 +113,14 @@ vim /opt/ezfirewall/sources/trusted_networks.yml
 ```yaml
 ---
 # home
-home_public: 1.2.3.4
 home_lan: 192.168.0.0/24
 
 # work
 office_public: 5.6.7.8
 ```
 
-**Define rulesets**
+Define rulesets
+---------------
 
 Name your rulesets after the network interface they apply to easily identify them. For example `eth0.yml`.
 
@@ -142,14 +147,17 @@ eth0:
 
         # The source name(s) or IP addresses to allow
         allow:
-          - home_public
+          - home_lan
           - office_public
           # It can also be a CIDR range
           - 12.34.0.0/16
 
         # The source name(s) or IP addresses to reject
         drop:
-          - x.x.x.x
+          - malicious_ip
+          - malicious_ip2
+          - malicious_ip3
+          - 1.2.3.4
 
     # The output rules
     # output:
@@ -157,7 +165,8 @@ eth0:
     
 ```
 
-**Apply the rules**
+Apply the rules
+---------------
 
 Must be run as root.
 
@@ -165,7 +174,8 @@ Must be run as root.
 ezfirewall
 ```
 
-**Check the rules**
+Check the rules
+---------------
 
 Use nftables native command to list the current rules. The output is horrible but I haven't found the time to create a better command yet.
 
@@ -173,18 +183,13 @@ Use nftables native command to list the current rules. The output is horrible bu
 nft list ruleset
 ```
 
-Configuration
-=============
-
-Configuration file is located at `/opt/ezfirewall/config.yml`.
-
 Change default input/output policy
 ----------------------------------
 
 Edit the `/opt/ezfirewall/config.yml` file and change the `input_default_policy` / `output_default_policy` values to `accept` or `drop`
 
-Log the dropped packets
------------------------
+Log dropped packets
+-------------------
 
 - rsyslog is required
 

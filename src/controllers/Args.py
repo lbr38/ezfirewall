@@ -20,6 +20,7 @@ class Args:
         print('  --quiet, -q         : Enable quiet mode (answer yes to all questions)')
         print('  --debug             : Enable debug mode')
         print('  --dry-run, -d       : Enable dry run mode')
+        print('  --no-persist        : Do not save rules to /etc/nftables.conf')
         print('  --list-sources, -ls : List current sources')
         #print('  --add-source, -as   : Add a source')
 
@@ -30,9 +31,10 @@ class Args:
     #
     #-----------------------------------------------------------------------------------------------
     def parse(self):
-        Args.dry_run = False
-        Args.quiet = False
-        Args.debug = False
+        self.dry_run = False
+        self.quiet = False
+        self.debug = False
+        self.no_persist = False
 
         try:
             # Parse arguments
@@ -47,6 +49,8 @@ class Args:
             parser.add_argument("--debug", action="store_true", default="null")
             # Dry run
             parser.add_argument("--dry-run", "-d", action="store_true", default="null")
+            # No persist
+            parser.add_argument("--no-persist", action="store_true", default="null")
             # Add source
             # TODO
             # parser.add_argument("--add-source", "-as", action="store_true", default="null")
@@ -71,18 +75,23 @@ class Args:
 
             # If --debug param has been set
             if args.debug != "null":
-                Args.debug = True
+                self.debug = True
                 print(Fore.YELLOW + ' ▪ Debug mode is enabled' + Style.RESET_ALL)
 
             # If --quiet param has been set
             if args.quiet != "null":
-                Args.quiet = True
+                self.quiet = True
                 print(Fore.YELLOW + ' ▪ Quiet mode is enabled' + Style.RESET_ALL)
 
             # If --dry-run param has been set
             if args.dry_run != "null":
-                Args.dry_run = True
+                self.dry_run = True
                 print(Fore.YELLOW + ' ▪ Dry run mode is enabled' + Style.RESET_ALL)
+
+            # If --no-persist param has been set
+            if args.no_persist != "null":
+                self.no_persist = True
+                print(Fore.YELLOW + ' ▪ Persistence to /etc/nftables.conf disabled' + Style.RESET_ALL)
 
             # If --add-source param has been set
             # TODO

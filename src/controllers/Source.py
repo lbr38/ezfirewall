@@ -6,6 +6,7 @@ import re
 from colorama import Fore, Style
 import yaml
 from tabulate import tabulate
+from typing import Optional
 
 class Source:
     def __init__(self):
@@ -28,9 +29,13 @@ class Source:
         # This will be used to check for duplicates
         sources_list = {}
 
+        # If source is an IP address, return it directly
+        if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}(\/\d{1,3})?$', source):
+            return source
+
         # If no source files are present, return
         if not list(Path(self.sources_dir).iterdir()):
-            raise Exception('No source files were found')
+            raise Exception('no source files were found')
 
         # Check source files
         for file in Path(self.sources_dir).iterdir():
@@ -43,12 +48,12 @@ class Source:
                 with open(file, 'r') as f:
                     sources = yaml.safe_load(f)
             except Exception as e:
-                raise Exception('Source file ' + str(file) + ' is not a valid YAML file: ' + str(e))
+                raise Exception('source file ' + str(file) + ' is not a valid YAML file: ' + str(e))
 
             for s in sources:
                 # If the source is already in the sources dictionary, then raise an exception because it is a duplicate
                 if s in sources_list:
-                    raise Exception('Found duplicate source "' + s + '" in source file ' + str(file))
+                    raise Exception('found duplicate source "' + s + '" in source file ' + str(file))
 
                 # Retrieve IP address
                 ip = sources[s]
@@ -69,7 +74,7 @@ class Source:
             return sources_list[source]
 
         # If no IP was returned, then it means that the source was not found in any source file
-        raise Exception('Source named ' + source + ' was not found in any source file')
+        raise Exception('source named ' + source + ' was not found in any source file')
 
 
     #-----------------------------------------------------------------------------------------------
@@ -77,7 +82,7 @@ class Source:
     #   List all sources and their IP addresses
     #
     #-----------------------------------------------------------------------------------------------
-    def list(self, search: str = None):
+    def list(self, search: Optional[str] = None):
         table = []
 
         print(' ▪ Listing sources')
@@ -88,6 +93,8 @@ class Source:
 
         # Check source files
         for file in Path(self.sources_dir).iterdir():
+            table.append([Style.BRIGHT + 'Source file ' + Fore.GREEN + file.name + Style.RESET_ALL, ''])
+
             # Source files are YAML files, so check if it is readable and parseable
             try:
                 with open(file, 'r') as f:

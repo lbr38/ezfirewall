@@ -16,6 +16,8 @@
     <link rel="stylesheet" type="text/css" href="/resources/styles/components/tooltip.css?<?= VERSION ?>">
     <link rel="stylesheet" type="text/css" href="/resources/styles/components/alert.css?<?= VERSION ?>">
     <link rel="stylesheet" type="text/css" href="/resources/styles/components/scrollbar.css?<?= VERSION ?>">
+    <link rel="stylesheet" type="text/css" href="/resources/styles/components/echart.css?<?= VERSION ?>">
+    <link rel="stylesheet" type="text/css" href="/resources/styles/components/hide.css?<?= VERSION ?>">
     <link rel="stylesheet" type="text/css" href="/resources/styles/ezfirewall.css?<?= VERSION ?>">
 
     <!-- Load pre JS -->
@@ -23,8 +25,8 @@
     <script src="/resources/js/pre/pre.js?<?= VERSION ?>"></script>
     <!-- jQuery -->
     <script src="/resources/js/libs/jquery-3.7.1.min.js?<?= VERSION ?>"></script>
-    <!-- ChartJS -->
-    <script src="/resources/js/libs/chartjs-4.4.8.umd.js?<?= VERSION ?>"></script>
+    <!-- ECharts -->
+    <script src="/resources/js/libs/echarts.min.js?<?= VERSION ?>"></script>
 </head>
 
 <nav class="flex justify-center margin-left-20 margin-top-15">
