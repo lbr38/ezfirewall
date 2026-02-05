@@ -21,7 +21,14 @@ if ($date == date('Y-m-d')) {
 $topBlockedIPs = $nftablesIpController->getTopTenBlockedIp($date);
 
 // Prepare chart data
-$options['title']['text'] = 'Top 10 IP addresses blocked on ' . strtolower($dateTitle);
+$options['title']['text'] = 'Top 10 IP addr. blocked';
+
+// Configure click callback to redirect to IP page
+$options['clickCallback'] = [
+    'enabled' => true,
+    'url' => '/ip?ip={value}',
+    'newTab' => true
+];
 
 // Populate data if results exist
 foreach ($topBlockedIPs as $ip) {

@@ -1,17 +1,28 @@
 <section class="main-container reloadable-container margin-top-10" container="charts">
-    <div class="flex column-gap-50 row-gap-20 flex-wrap align-items-center div-generic-blue">
-        <div>
-            <h6 class="margin-top-0">MOST DROPPED IP</h6>
-            <p title="blocked <?= $mostBlockedIP['count'] ?> times since <?= $firstDate ?>"><a href="/ip?ip=<?= $mostBlockedIP['Source_ip'] ?>" target="_blank" rel="noopener"><code><?= $mostBlockedIP['Source_ip'] ?></code></a></p>
+    <div class="grid grid-rfr-1-2 column-gap-20 row-gap-20 align-items-center kpi-container">
+        <div class="kpi-card">
+            <img src="/assets/icons/ban.svg" class="icon-np icon-medium" />
+            <div>
+                <div class="flex align-item-center column-gap-8">
+                    <a href="/ip?ip=<?= $mostBlockedIP['Source_ip'] ?>" target="_blank" rel="noopener"><p class="kpi-value" title="blocked <?= $mostBlockedIP['count'] ?> times since <?= $firstDate ?>"><?= $mostBlockedIP['Source_ip'] ?></p></a>
+                </div>
+                <p class="mediumopacity-cst">Most dropped IP</p>
+            </div>
         </div>
-        
-        <div>
-            <h6 class="margin-top-0">MOST DROPPED PORT</h6>
-            <p title="blocked <?= $mostBlockedPort['count'] ?> times since <?= $firstDate ?>"><a href="/port?port=<?= $mostBlockedPort['port'] ?>" target="_blank" rel="noopener"><code><?= $mostBlockedPort['port'] ?>/<?= $mostBlockedPort['protocol'] ?></code></a></p>
+
+        <div class="kpi-card">
+            <img src="/assets/icons/ban.svg" class="icon-np icon-medium" />
+            <div>
+                <div class="flex align-item-center column-gap-8">
+                    <a href="/port?port=<?= $mostBlockedPort['port'] ?>" target="_blank" rel="noopener"><p class="kpi-value" title="blocked <?= $mostBlockedPort['count'] ?> times since <?= $firstDate ?>"><?= $mostBlockedPort['port'] ?></p></a>
+                    <p class="label-white"><?= $mostBlockedPort['protocol'] ?></p>
+                </div>
+                <p class="mediumopacity-cst">Most dropped port</p>
+            </div>
         </div>
     </div>
 
-    <div class="div-generic-blue height-100">
+    <div class="div-generic-blue height-100 margin-top-20">
         <div class="flex flex-wrap justify-space-between column-gap-10 row-gap-10">
             <h6 class="margin-top-0">TOP 10 DROPPED IP & PORTS</h6>
 

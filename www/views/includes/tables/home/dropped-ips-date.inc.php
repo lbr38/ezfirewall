@@ -31,8 +31,8 @@
                     </div>
             
                     <div class="flex align-item-center column-gap-10">
-                        <p><a href="/port?port=<?= $item['Dest_port'] ?>" target="_blank" rel="noopener"><code><?= $item['Dest_port'] . '/' . $item['Protocol'] ?></code></a></p>
-                        <p><code><?= $item['Interface_inbound'] ?></code></p>
+                        <a href="/port?port=<?= $item['Dest_port'] ?>" target="_blank" rel="noopener"><p class="label-white"><?= $item['Dest_port'] . '/' . $item['Protocol'] ?></p></a>
+                        <p class="label-white" title="Inbound network interface"><?= $item['Interface_inbound'] ?></p>
                     </div>
                 </div>
             </div>

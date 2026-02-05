@@ -25,7 +25,7 @@
                     </div>
                 </div>
 
-                <p><code><?= $item['Protocol'] ?></code></p>
+                <p><span class="label-white"><?= $item['Protocol'] ?></span></p>
                 <p class="font-size-14"><?= $item['Count'] ?></p>                
             </div>
             <?php

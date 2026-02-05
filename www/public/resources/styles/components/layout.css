@@ -5,6 +5,12 @@ body {
     margin: 0px;
     padding: 0px;
     background-color: #0e1e2f;
+    background-image:
+        radial-gradient(circle at top left, rgba(84, 115, 232, 0.08), transparent 28%),
+        radial-gradient(circle at top right, rgba(124, 92, 255, 0.09), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(124, 92, 255, 0.06), transparent 34%),
+        linear-gradient(180deg, #091521 0%, #0e1e2f 46%, #13253a 100%);
+    background-attachment: fixed;
     color: white;
     overflow-y: auto;
     font-family: 'Roboto', sans-serif !important;
@@ -12,12 +18,12 @@ body {
 }
 
 .div-generic-blue {
-    position: relative;
     padding: 15px;
     margin-bottom: 30px;
     border-radius: 20px;
     background-color: #182b3e;
     box-shadow: rgb(0 0 0) 0px 10px 13px -12px, rgb(0 0 0 / 15%) 0px 0px 10px 2px;
+    border: 1px solid #1a4a6a;
 }
 
 .div-generic-blue h3 {

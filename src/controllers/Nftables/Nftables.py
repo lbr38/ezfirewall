@@ -78,14 +78,34 @@ class Nftables:
 
             # Load backup JSON
             with open(self.ruleset_backup, 'r') as f:
-                backup_ruleset = f.read()
+                backup_content = f.read()
+
+            # Parse the backup content as JSON. The backup was produced by
+            # 'list ruleset' with JSON output enabled, so it must be re-applied
+            # through json_cmd() (cmd() only understands the native nft syntax).
+            try:
+                backup_ruleset = json.loads(backup_content)
+            except json.JSONDecodeError as e:
+                raise Exception('backup file is not valid JSON: ' + str(e))
+
+            if not isinstance(backup_ruleset, dict) or 'nftables' not in backup_ruleset:
+                raise Exception('invalid backup structure: missing "nftables" key')
+
+            # Rebuild the command list: flush the current ruleset first, then
+            # re-apply every object from the backup (skipping the read-only
+            # 'metainfo' element that 'list ruleset' prepends to its output).
+            commands = [{"flush": {"ruleset": None}}]
+            for item in backup_ruleset['nftables']:
+                if isinstance(item, dict) and 'metainfo' in item:
+                    continue
+                commands.append(item)
 
             # Apply the backup ruleset
-            rc, output, error = self.nft.cmd(backup_ruleset)
+            rc, output, error = self.nft.json_cmd({"nftables": commands})
 
             if rc != 0:
-                raise Exception('could not apply backup ruleset: ' + error)
-                
+                raise Exception('could not apply backup ruleset: ' + str(error))
+
         except Exception as e:
             raise Exception('error while restoring backup configuration: ' + str(e))
 
@@ -128,18 +148,25 @@ class Nftables:
             return  # Nothing to check
             
         try:
-            # Test the ruleset syntax without applying it
-            # We need to use the JSON validation functionality
-
-            # First, validate it's proper JSON
+            # Validate JSON structure first
             ruleset_data = json.loads(ruleset_json)
             
-            # Validate the structure has required nftables format
             if not isinstance(ruleset_data, dict) or 'nftables' not in ruleset_data:
                 raise Exception('invalid nftables JSON structure: missing "nftables" key')
             
             if not isinstance(ruleset_data['nftables'], list):
                 raise Exception('invalid nftables JSON structure: "nftables" must be a list')
+
+            # Use nft -c (check mode) to validate without applying
+            result = subprocess.run(
+                ['nft', '-c', '-j', '-f', '-'],
+                input=ruleset_json,
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode != 0:
+                raise Exception('invalid nftables ruleset: ' + result.stderr.strip())
             
         except json.JSONDecodeError as e:
             raise Exception('invalid JSON format: ' + str(e))
@@ -190,6 +217,9 @@ class Nftables:
                 f.write("# This file ensures rules persistence across reboots\n\n")
                 f.write(result.stdout)
                 f.write("\n")
+            
+            # Set restrictive permissions (root-only read/write)
+            Path(self.nftables_conf_path).chmod(0o600)
 
         except Exception as e:
             raise Exception('error saving to ' + self.nftables_conf_path + ':' + str(e))

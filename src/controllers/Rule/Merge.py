@@ -32,15 +32,75 @@ class Merge:
             base_ip_data = base_iface.get(ip_version, {})
             new_ip_data = new_iface.get(ip_version, {})
 
-            if base_ip_data or new_ip_data:
-                merged_iface[ip_version] = {
-                    "input": self._merge_input_sections(base_ip_data.get("input", {}),
-                                                        new_ip_data.get("input", {})),
-                    "output": self._merge_input_sections(base_ip_data.get("output", {}),
-                                                        new_ip_data.get("output", {}))
-                }
+            if not base_ip_data and not new_ip_data:
+                continue
+
+            merged_ip = {}
+
+            # Fusionner les sections 'input' et 'output' (fusion au niveau des listes allow/drop/ports)
+            for section in ["input", "output"]:
+                base_section = base_ip_data.get(section, {})
+                new_section = new_ip_data.get(section, {})
+                if base_section or new_section:
+                    merged_ip[section] = self._merge_input_sections(base_section, new_section)
+
+            # Fusionner la section 'forward'
+            base_forward = base_ip_data.get("forward", {})
+            new_forward = new_ip_data.get("forward", {})
+            if base_forward or new_forward:
+                merged_ip["forward"] = self._merge_forward_sections(base_forward, new_forward)
+
+            # Fusionner la section 'nat'
+            base_nat = base_ip_data.get("nat", {})
+            new_nat = new_ip_data.get("nat", {})
+            if base_nat or new_nat:
+                merged_ip["nat"] = self._merge_nat_sections(base_nat, new_nat)
+
+            merged_iface[ip_version] = merged_ip
 
         return merged_iface
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Merge the 'forward' sections of the interfaces
+    #
+    #-----------------------------------------------------------------------------------------------
+    def _merge_forward_sections(self, base_forward, new_forward):
+        merged_forward = deepcopy(base_forward)
+
+        for rule_name, new_rule_data in new_forward.items():
+            if rule_name in merged_forward:
+                # Si le groupe de règles existe déjà, on concatène les règles sans dupliquer
+                # (les clés scalaires action/log/log_prefix du premier fichier sont conservées)
+                base_rules = merged_forward[rule_name].setdefault('rules', [])
+                for rule in new_rule_data.get('rules', []):
+                    if rule not in base_rules:
+                        base_rules.append(rule)
+            else:
+                # Sinon, on ajoute le nouveau groupe de règles
+                merged_forward[rule_name] = deepcopy(new_rule_data)
+
+        return merged_forward
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Merge the 'nat' sections of the interfaces
+    #
+    #-----------------------------------------------------------------------------------------------
+    def _merge_nat_sections(self, base_nat, new_nat):
+        merged_nat = deepcopy(base_nat)
+
+        # NAT is organized by chain (prerouting, postrouting), each containing named rules
+        for chain, new_rules in new_nat.items():
+            if chain not in merged_nat:
+                merged_nat[chain] = deepcopy(new_rules)
+            else:
+                for rule_name, rule_config in new_rules.items():
+                    # First file wins if the same rule name is defined twice
+                    if rule_name not in merged_nat[chain]:
+                        merged_nat[chain][rule_name] = deepcopy(rule_config)
+
+        return merged_nat
 
     #-----------------------------------------------------------------------------------------------
     #

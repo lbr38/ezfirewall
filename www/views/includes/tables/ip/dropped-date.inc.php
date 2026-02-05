@@ -21,10 +21,9 @@
                     <p class="mediumopacity-cst"><?= $item['Time'] ?></p>
                 </div>
 
-                <p><a href="/port?port=<?= $item['Dest_port'] ?>" target="_blank" rel="noopener"><code><?= $item['Dest_port'] . '/' . $item['Protocol'] ?></code></a></p>
+                <a href="/port?port=<?= $item['Dest_port'] ?>" target="_blank" rel="noopener"><p class="label-white"><?= $item['Dest_port'] . '/' . $item['Protocol'] ?></p></a>
 
-                <p><code><?= $item['Interface_inbound'] ?></code></p>
-
+                <p><span class="label-white"><?= $item['Interface_inbound'] ?></span></p>
             </div>
             <?php
         endforeach ?>

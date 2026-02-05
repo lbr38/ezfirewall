@@ -4,7 +4,7 @@
 import re
 import sys
 import glob
-import subprocess
+import socket
 from pathlib import Path
 import yaml
 from colorama import Fore, Style
@@ -14,14 +14,22 @@ from tabulate import tabulate
 from src.controllers.Rule.Merge import Merge
 from src.controllers.Nftables.Nftables import Nftables
 from src.controllers.Nftables.Input import Input
+from src.controllers.Nftables.Forward import Forward
+from src.controllers.Nftables.Nat import Nat
 from src.controllers.Source import Source
 
 class Rule:
     def __init__(self):
         self.rules_dir = '/opt/ezfirewall/rules'
+        # Tracks whether the live nftables ruleset has actually been modified.
+        # Used to decide whether a backup restore is needed on failure.
+        self.applied = False
         self.mergeController = Merge()
         self.nftablesController = Nftables()
         self.nftablesInputController = Input()
+        # Share the same JsonBuilder instance so all rules end up in the same ruleset
+        self.nftablesForwardController = Forward(self.nftablesInputController.jsonBuilder)
+        self.nftablesNatController = Nat(self.nftablesInputController.jsonBuilder)
         self.sourceController = Source()
 
         # Create rules directory if it does not exist
@@ -29,6 +37,118 @@ class Rule:
             print('Creating ' + self.rules_dir + ' directory: ', end = '')
             Path(self.rules_dir).mkdir(parents = True, exist_ok = True)
             print(Fore.GREEN + '✔' + Style.RESET_ALL)
+
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Check whether a network interface exists on this system
+    #
+    #-----------------------------------------------------------------------------------------------
+    def interface_exists(self, interface: str) -> bool:
+        """Return True if the given interface name exists on this system.
+
+        Uses socket.if_nameindex() instead of shelling out, avoiding any
+        command injection risk from interface names read from YAML files.
+        """
+        try:
+            return interface in [name for _, name in socket.if_nameindex()]
+        except OSError:
+            return False
+
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Validate rules schema
+    #
+    #-----------------------------------------------------------------------------------------------
+    def validate_rules_schema(self, content):
+        """Validate the structure of all rules and provide clear error messages for missing fields."""
+        
+        for interface, iface_data in content.items():
+            for ip_version, ip_data in iface_data.items():
+                if not isinstance(ip_data, dict):
+                    raise Exception(f'{interface}/{ip_version}: must be a mapping (dict)')
+
+                # Validate input/output rules
+                for section in ['input', 'output']:
+                    if section in ip_data:
+                        if not isinstance(ip_data[section], dict):
+                            raise Exception(f'{interface}/{ip_version}/{section}: must be a mapping')
+                        
+                        for rule_name, rule_data in ip_data[section].items():
+                            if not isinstance(rule_data, dict):
+                                raise Exception(f'{interface}/{ip_version}/{section}/{rule_name}: rule must be a mapping')
+                            
+                            # Check for required field 'protocol'
+                            if 'protocol' not in rule_data:
+                                raise Exception(f'{interface}/{ip_version}/{section}/{rule_name}: missing required field "protocol"')
+                            
+                            # Check that at least 'allow' or 'drop' is present
+                            has_allow = 'allow' in rule_data and rule_data['allow']
+                            has_drop = 'drop' in rule_data and rule_data['drop']
+                            if not (has_allow or has_drop):
+                                raise Exception(f'{interface}/{ip_version}/{section}/{rule_name}: must have at least one of "allow" or "drop" (non-empty)')
+
+                # Validate forward rules
+                if 'forward' in ip_data:
+                    if not isinstance(ip_data['forward'], dict):
+                        raise Exception(f'{interface}/{ip_version}/forward: must be a mapping')
+                    
+                    for rule_name, rule_config in ip_data['forward'].items():
+                        if not isinstance(rule_config, dict):
+                            raise Exception(f'{interface}/{ip_version}/forward/{rule_name}: rule must be a mapping')
+                        
+                        # Check for required field 'rules'
+                        if 'rules' not in rule_config:
+                            raise Exception(f'{interface}/{ip_version}/forward/{rule_name}: missing required field "rules"')
+                        
+                        rules = rule_config['rules']
+                        if not isinstance(rules, list) or len(rules) == 0:
+                            raise Exception(f'{interface}/{ip_version}/forward/{rule_name}: "rules" must be a non-empty list')
+                        
+                        # Validate each rule in the list
+                        for i, rule in enumerate(rules):
+                            if not isinstance(rule, dict):
+                                raise Exception(f'{interface}/{ip_version}/forward/{rule_name}/rules[{i}]: each rule must be a mapping')
+                            
+                            # Each rule must have at least one of from_interface or to_interface
+                            has_from = 'from_interface' in rule
+                            has_to = 'to_interface' in rule
+                            if not (has_from or has_to):
+                                raise Exception(f'{interface}/{ip_version}/forward/{rule_name}/rules[{i}]: must have at least one of "from_interface" or "to_interface"')
+
+                # Validate NAT rules
+                if 'nat' in ip_data:
+                    if not isinstance(ip_data['nat'], dict):
+                        raise Exception(f'{interface}/{ip_version}/nat: must be a mapping')
+                    
+                    for chain, chain_rules in ip_data['nat'].items():
+                        if chain not in ['prerouting', 'postrouting']:
+                            raise Exception(f'{interface}/{ip_version}/nat/{chain}: unknown NAT chain (must be "prerouting" or "postrouting")')
+                        
+                        if not isinstance(chain_rules, dict):
+                            raise Exception(f'{interface}/{ip_version}/nat/{chain}: must be a mapping')
+                        
+                        for rule_name, rule_config in chain_rules.items():
+                            if not isinstance(rule_config, dict):
+                                raise Exception(f'{interface}/{ip_version}/nat/{chain}/{rule_name}: rule must be a mapping')
+
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Check whether a network interface exists on this system
+    #
+    #-----------------------------------------------------------------------------------------------
+    def interface_exists(self, interface: str) -> bool:
+        """Return True if the given interface name exists on this system.
+
+        Uses socket.if_nameindex() instead of shelling out, avoiding any
+        command injection risk from interface names read from YAML files.
+        """
+        try:
+            return interface in [name for _, name in socket.if_nameindex()]
+        except OSError:
+            return False
 
 
     #-----------------------------------------------------------------------------------------------
@@ -84,8 +204,11 @@ class Rule:
         if not content:
             raise Exception('No rules to apply')
 
+        # Validate the rules schema to provide clear error messages for missing fields
+        self.validate_rules_schema(content)
+
         # Generate the summary table
-        self.generate_summary_table(content)
+        self.generate_summary_table(content, quiet)
 
         # Ask for confirmation before applying rules
         if not dry_run:
@@ -138,13 +261,14 @@ class Rule:
                                 sources = content[interface][ip_version][input_output][rule_name]['drop']
                                 
                                 if input_output == 'input':
-                                    # Collect IPs for drop set
-                                    self.nftablesInputController.generate_drop_rules(ip_version, interface, sources, protocol, ports)
+                                    # Collect IPs for drop set (per service)
+                                    self.nftablesInputController.generate_drop_rules(ip_version, interface, rule_name, sources, protocol, ports)
                                     
                                     # Store rule data for later drop rule creation
                                     rules_data.append({
                                         'ip_version': ip_version,
                                         'interface': interface,
+                                        'rule_name': rule_name,
                                         'protocol': protocol,
                                         'ports': ports,
                                         'type': 'drop'
@@ -158,43 +282,33 @@ class Rule:
         for interface in content:
             # Check that this interface exists on the system
             # Ignore this check if the interface is 'any'
-            if interface != 'any':
-                result = subprocess.run(
-                    ["/usr/sbin/route -n | awk '{print $NF}' | grep -q '" + interface + "'"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    universal_newlines=True,
-                    shell=True
-                )
-
-                if result.returncode != 0:
-                    if not quiet:
-                        print('\n' + Fore.YELLOW + ' ▪ Interface ' + interface + ' does not exist on this system' + Style.RESET_ALL)
-                    continue
+            if interface != 'any' and not self.interface_exists(interface):
+                if not quiet:
+                    print('\n' + Fore.YELLOW + ' ▪ Interface ' + interface + ' does not exist on this system (rules will still be applied)' + Style.RESET_ALL)
 
             for ip_version in ["ipv4", "ipv6"]:
                 if ip_version not in content[interface]:
                     continue
 
-                # Ignore this interface if it has no 'input' or 'output' rules
-                if 'input' not in content[interface][ip_version] and 'output' not in content[interface][ip_version]:
-                    continue
-
-                # Process input rules
+                # Process input/output allow rules
                 for input_output in ['input', 'output']:
-                    # If 'input' or 'output' rules are present in the interface
                     if input_output in content[interface][ip_version]:
-                        # Process allow rules only (drops already handled above)
                         for rule_name in content[interface][ip_version][input_output]:
                             if 'allow' in content[interface][ip_version][input_output][rule_name]:
-                                # Retrieve port, protocol, allow values
                                 protocol = content[interface][ip_version][input_output][rule_name]['protocol']
                                 ports = content[interface][ip_version][input_output][rule_name]['ports'] if 'ports' in content[interface][ip_version][input_output][rule_name] else []
                                 sources = content[interface][ip_version][input_output][rule_name]['allow']
                                 
                                 if input_output == 'input':
-                                    # Create individual allow rules (after drops for proper priority)
                                     self.nftablesInputController.generate_allow_rules(ip_version, interface, sources, protocol, ports)
+
+                # Process forward rules
+                if 'forward' in content[interface][ip_version]:
+                    self.nftablesForwardController.generate_forward_rules(ip_version, content[interface][ip_version]['forward'])
+
+                # Process NAT rules
+                if 'nat' in content[interface][ip_version]:
+                    self.nftablesNatController.generate_nat_rules(ip_version, content[interface][ip_version]['nat'])
 
         # Finalize the ruleset by adding final drop/log rules
         self.nftablesInputController.finalize()
@@ -218,7 +332,8 @@ class Rule:
         #
         if not dry_run:
             print(' ▪ Applying rules', end=' ')
-            self.nftablesController.apply(ruleset_json)
+            self.nftablesController.apply(ruleset_json)            # The live ruleset has now been modified
+            self.applied = True
             print('\r ' + Fore.GREEN + '✔' + Style.RESET_ALL)
             
             # Save to /etc/nftables.conf for persistence (unless --no-persist is used)
@@ -238,43 +353,40 @@ class Rule:
     #   Generate summary table
     #
     #-----------------------------------------------------------------------------------------------
-    def generate_summary_table(self, content):
+    def generate_summary_table(self, content, quiet=False):
         table = []
+        forward_table = []
 
         # In the rules file, loop through every interface to apply their rules
         for interface in content:
             # First check that this interface exists on the system
             # Ignore this check if the interface is 'any'
-            if interface != 'any':
-                result = subprocess.run(
-                    ["/usr/sbin/route -n | awk '{print $NF}' | grep -q '" + interface + "'"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    universal_newlines=True,
-                    shell=True
-                )
-
-                # If interface does not exist, raise an exception
-                if result.returncode != 0:
-                    raise Exception('Interface ' + interface + ' does not exist on this system')
+            if interface != 'any' and not self.interface_exists(interface):
+                if not quiet:
+                    print('\n' + Fore.YELLOW + ' ▪ Interface ' + interface + ' does not exist on this system (rules will still be applied)' + Style.RESET_ALL)
 
             # Loop through ipv4 and ipv6 sections
             for ip_version in ["ipv4", "ipv6"]:
                 if ip_version not in content[interface]:
                     continue
 
-                # Ignore this interface if it has no 'input' or 'output' rules
-                if 'input' not in content[interface][ip_version] and 'output' not in content[interface][ip_version]:
+                # Ignore this interface if it has no 'input', 'output' or 'forward' rules
+                if ('input' not in content[interface][ip_version]
+                        and 'output' not in content[interface][ip_version]
+                        and 'forward' not in content[interface][ip_version]):
                     continue
 
-                # Add interface to the table
+                # Interface label used in the tables
                 if interface == 'any':
-                    table.append([Style.BRIGHT + Fore.GREEN + 'any (all interfaces)' + Style.RESET_ALL + ' (IPv' + ip_version[-1] + ')', '', '', '', ''])
+                    interface_label = Style.BRIGHT + Fore.GREEN + 'any (all interfaces)' + Style.RESET_ALL + ' (IPv' + ip_version[-1] + ')'
                 else:
-                    table.append([Style.BRIGHT + 'Interface ' + Fore.GREEN + interface + Style.RESET_ALL + ' (IPv' + ip_version[-1] + ')', '', '', '', ''])
+                    interface_label = Style.BRIGHT + 'Interface ' + Fore.GREEN + interface + Style.RESET_ALL + ' (IPv' + ip_version[-1] + ')'
 
                 # Apply input rules of the interface
                 if 'input' in content[interface][ip_version]:
+                    # Add interface to the input table
+                    table.append([interface_label, '', '', '', ''])
+
                     table.append([Style.BRIGHT + "Rule name", "Port(s)", "Protocol(s)", "Allow input packets from", "Drop input packets from" + Style.RESET_ALL])
 
                     for rule_name in content[interface][ip_version]['input']:
@@ -304,8 +416,59 @@ class Rule:
                             '\n'.join(drop_formatted),
                         ])
 
-        if not table:
+                # Apply forward rules of the interface
+                if 'forward' in content[interface][ip_version]:
+                    # Add interface to the forward table
+                    forward_table.append([interface_label, '', '', '', '', '', '', ''])
+
+                    forward_table.append([
+                        Style.BRIGHT + "Rule name", "Action", "From interface", "To interface",
+                        "From source", "To destination", "Protocol", "Port(s) (src \u2192 dst)" + Style.RESET_ALL
+                    ])
+
+                    for rule_name in content[interface][ip_version]['forward']:
+                        forward_rule = content[interface][ip_version]['forward'][rule_name]
+                        action = forward_rule.get('action', 'accept')
+                        rules = forward_rule.get('rules', [])
+
+                        # Format action for table display
+                        action_formatted = (Fore.GREEN if action == 'accept' else Fore.YELLOW) + action + Style.RESET_ALL
+
+                        # A forward group can contain several match rules
+                        for rule in rules:
+                            from_port = rule.get('from_port', '')
+                            to_port = rule.get('to_port', '')
+                            protocol = rule.get('protocol', 'any')
+
+                            # Format the port(s) column as 'src -> dst' (only relevant for tcp/udp)
+                            if from_port or to_port:
+                                ports_display = str(from_port) if from_port else 'any'
+                                ports_display += ' \u2192 '
+                                ports_display += str(to_port) if to_port else 'any'
+                            else:
+                                ports_display = ''
+
+                            forward_table.append([
+                                rule_name,
+                                action_formatted,
+                                rule.get('from_interface', ''),
+                                rule.get('to_interface', ''),
+                                Fore.GREEN + str(rule.get('from_source', '')) + Style.RESET_ALL if rule.get('from_source') else '',
+                                Fore.GREEN + str(rule.get('to_destination', '')) + Style.RESET_ALL if rule.get('to_destination') else '',
+                                'any (tcp, udp)' if protocol == 'any' else protocol,
+                                ports_display,
+                            ])
+
+        if not table and not forward_table:
             raise Exception('No rules to apply')
 
         print('\n The following rules will be applied:')
-        print(tabulate(table, tablefmt="fancy_grid"), end='\n')
+
+        # Print the input/output rules table
+        if table:
+            print(tabulate(table, tablefmt="fancy_grid"), end='\n')
+
+        # Print the forward rules table
+        if forward_table:
+            print('\n Forward rules:')
+            print(tabulate(forward_table, tablefmt="fancy_grid"), end='\n')
