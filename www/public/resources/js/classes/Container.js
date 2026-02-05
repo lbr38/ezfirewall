@@ -89,6 +89,11 @@ class Container {
                         }
                     }
 
+                    // Execute post reload function if exists
+                    if (typeof postReloadFunctions !== 'undefined' && typeof postReloadFunctions[container] === 'function') {
+                        postReloadFunctions[container]();
+                    }
+
                     // Reload opened or closed elements that were opened/closed before reloading
                     mylayout.reloadOpenedClosedElements();
 
