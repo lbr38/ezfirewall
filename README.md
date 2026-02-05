@@ -223,18 +223,20 @@ restart_services:
 Web interface
 =============
 
-The web interface is still work in progress / beta. More features will be added in the future.
+A web interface is available to easily visualize the dropped traffic.
 
 <div align="center">
-    <img src="https://github.com/user-attachments/assets/63f14051-9958-4fd6-854d-6c47d9b9aab0" width=30% align="top">
+    <img src="https://github.com/user-attachments/assets/46d57063-1ed9-4cd3-bda1-4ae888c978c8" width=22% align="top">
     &nbsp;
-    <img src="https://github.com/user-attachments/assets/1ce33e48-7340-4e35-bc17-6283746df24f" width=30% align="top">
+    <img src="https://github.com/user-attachments/assets/fc7c2f36-c470-4af9-add7-472369e67cf7" width=22% align="top">
     &nbsp;
-    <img src="https://github.com/user-attachments/assets/1029ca8b-192e-4f1b-981c-829c04d18aeb" width=30% align="top">
+    <img src="https://github.com/user-attachments/assets/6a70407b-0913-44c9-89e6-5ce04fe43a73" width=22% align="top">
+    &nbsp;
+    <img src="https://github.com/user-attachments/assets/3cf54312-40f2-415f-9270-247cf10b4099" width=22% align="top">
 </div>
 <br>
 
-**Requirements**
+**Requirements to use the web interface**:
 
 - Set the `log_dropped_traffic` options to `True` in the configuration file to enable logging of dropped packets.
 - You will need a web server with PHP 8.2 or newer and PHP SQLite, Yaml extensions installed (`php8.x-sqlite3`, `php8.x-yaml` on Debian based OS).
