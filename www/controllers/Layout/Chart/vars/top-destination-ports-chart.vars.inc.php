@@ -21,7 +21,7 @@ if ($date == date('Y-m-d')) {
 $topDestinationPorts = $nftablesPortController->getTopTenDestinationPorts($date);
 
 // Prepare chart data
-$options['title']['text'] = 'Top 10 destination ports blocked on ' . strtolower($dateTitle);
+$options['title']['text'] = 'Top 10 destination ports blocked';
 
 // Populate data if results exist
 foreach ($topDestinationPorts as $port) {
