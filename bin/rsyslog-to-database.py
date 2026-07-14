@@ -17,6 +17,7 @@ BATCH_SIZE = 5 # Number of messages to wait before writing to database
 def parse_message(message: str):
     date = None
     time = None
+    timestamp = None
     interface_inbound = None
     interface_outbound = None
     mac = None
@@ -31,15 +32,10 @@ def parse_message(message: str):
         return None
 
     #
-    # Split message into fields, to get the date and time
+    # The first field is an RFC3339 timestamp (e.g. 2026-06-22T14:30:45+02:00)
+    # which contains both the date and the time
     #
-    fields = message.split(' ')
-
-    # Get date
-    date = fields[0]
-
-    # Get time
-    time = fields[0]
+    timestamp = message.split(' ')[0]
 
     # Get interface inbound
     if re.search(r'IN=([a-zA-Z0-9:]+)', message):
@@ -53,13 +49,13 @@ def parse_message(message: str):
     if re.search(r'MAC=([a-zA-Z0-9:]+)', message):
         mac = re.search(r'MAC=([a-zA-Z0-9:]+)', message).group(1)
 
-    # Get source IP
-    if re.search(r'SRC=([\d\.]+)', message):
-        source_ip = re.search(r'SRC=([\d\.]+)', message).group(1)
+    # Get source IP (matches both IPv4 and IPv6 addresses)
+    if re.search(r'SRC=([0-9a-fA-F:.]+)', message):
+        source_ip = re.search(r'SRC=([0-9a-fA-F:.]+)', message).group(1)
 
-    # Get destination ip
-    if re.search(r'DST=([\d\.]+)', message):
-        dest_ip = re.search(r'DST=([\d\.]+)', message).group(1)
+    # Get destination ip (matches both IPv4 and IPv6 addresses)
+    if re.search(r'DST=([0-9a-fA-F:.]+)', message):
+        dest_ip = re.search(r'DST=([0-9a-fA-F:.]+)', message).group(1)
 
     # Get source port
     if re.search(r'SPT=(\d+)', message):
@@ -69,15 +65,16 @@ def parse_message(message: str):
     if re.search(r'DPT=(\d+)', message):
         dest_port = re.search(r'DPT=(\d+)', message).group(1)
 
-    # Get protocol
-    if re.search(r'PROTO=([a-zA-Z]+)', message):
-        protocol = re.search(r'PROTO=([a-zA-Z]+)', message).group(1)
+    # Get protocol (e.g. TCP, UDP, ICMP, ICMPv6)
+    if re.search(r'PROTO=([a-zA-Z0-9]+)', message):
+        protocol = re.search(r'PROTO=([a-zA-Z0-9]+)', message).group(1)
 
-    # Convert date to Y-M-D format
+    # Convert the RFC3339 timestamp to date (Y-m-d) and time (H:M:S)
     try:
-        date = dateutil.parser.parse(date).strftime('%Y-%m-%d')
-        time = dateutil.parser.parse(time).strftime('%H:%M:%S')
-    except:
+        parsed_timestamp = dateutil.parser.parse(timestamp)
+        date = parsed_timestamp.strftime('%Y-%m-%d')
+        time = parsed_timestamp.strftime('%H:%M:%S')
+    except Exception:
         return None
 
     # Quit if some values are not set
@@ -110,11 +107,11 @@ def write_batch_to_database(batch_data):
         Interface_inbound VARCHAR(255), \
         Interface_outbound VARCHAR(255), \
         Mac VARCHAR(255), \
-        Source_ip CHAR(15), \
-        Dest_ip CHAR(15), \
+        Source_ip VARCHAR(45), \
+        Dest_ip VARCHAR(45), \
         Source_port CHAR(5), \
         Dest_port CHAR(5), \
-        Protocol CHAR(3))")
+        Protocol VARCHAR(10))")
 
     #
     # Create indexes if they do not exist
@@ -185,10 +182,8 @@ def clean():
         if Path('/opt/ezfirewall/config.yml').exists():
             with open('/opt/ezfirewall/config.yml', 'r') as f:
                 config = yaml.safe_load(f)
-                if 'log_retention_days' in config:
+                if config is not None and 'log_retention_days' in config:
                     retention_days = config['log_retention_days']
-
-            del config, f
     except Exception:
         pass
 

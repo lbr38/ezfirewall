@@ -6,7 +6,7 @@
 
         <div class="grid grid-rfr-1-2 column-gap-40 row-gap-40">
             <div>
-                <p><code><?= $port ?>/TCP</code></p>
+                <p class="label-white"><?= $port ?>/TCP</p>
 
                 <div class="echart-container">
                     <div id="top-blocked-ips-tcp-chart-loading" class="echart-loading">
@@ -18,7 +18,7 @@
             </div>
 
             <div>
-                <p><code><?= $port ?>/UDP</code></p>
+                <p class="label-white"><?= $port ?>/UDP</p>
 
                 <div class="echart-container">
                     <div id="top-blocked-ips-udp-chart-loading" class="echart-loading">

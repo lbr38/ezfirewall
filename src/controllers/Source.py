@@ -2,7 +2,7 @@
 
 # Import libraries
 from pathlib import Path
-import re
+import ipaddress
 from colorama import Fore, Style
 import yaml
 from tabulate import tabulate
@@ -21,6 +21,23 @@ class Source:
 
     #-----------------------------------------------------------------------------------------------
     #
+    #   Check that a string is a valid IPv4/IPv6 address or CIDR range
+    #
+    #-----------------------------------------------------------------------------------------------
+    def is_valid_ip(self, ip: str) -> bool:
+        """Return True if ip is a valid IPv4/IPv6 address or CIDR network (compressed forms included)"""
+        try:
+            if '/' in ip:
+                ipaddress.ip_network(ip, strict=False)
+            else:
+                ipaddress.ip_address(ip)
+            return True
+        except ValueError:
+            return False
+
+
+    #-----------------------------------------------------------------------------------------------
+    #
     #   Get source IP address
     #
     #-----------------------------------------------------------------------------------------------
@@ -30,7 +47,7 @@ class Source:
         sources_list = {}
 
         # If source is an IP address, return it directly
-        if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}(\/\d{1,3})?$', source):
+        if self.is_valid_ip(source):
             return source
 
         # If no source files are present, return
@@ -63,7 +80,7 @@ class Source:
                     raise Exception('IP address of source "' + s + '" is empty')
 
                 # Check that IP is a valid IP address (v4 or v6)
-                if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}(\/\d{1,3})?$', ip):
+                if not self.is_valid_ip(ip):
                     raise Exception('IP address "' + ip + '" of source "' + s + '" is not a valid IP address')
 
                 # Add the source to the sources dictionary

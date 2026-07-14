@@ -19,12 +19,14 @@ class JsonBuilder:
         
         self.sets = {
             'ipv4': {
-                'interfaces': [],
-                'has_any': False
+                'drop_sets': [],  # list of {'interface': ..., 'rule_name': ...}
+                'has_any': False,
+                'any_rules': []   # rule names for 'any' interface
             },
             'ipv6': {
-                'interfaces': [],
-                'has_any': False
+                'drop_sets': [],
+                'has_any': False,
+                'any_rules': []
             }
         }
 
@@ -66,54 +68,49 @@ class JsonBuilder:
     #
     #-----------------------------------------------------------------------------------------------
     def create_sets(self):
-        """Create sets for managing DROP IP addresses only"""
-        # Create DROP sets for specific interfaces
-        for interface in self.sets['ipv4']['interfaces']:
-            if interface != 'any':  # Skip 'any' as we handle it separately
-                # Drop list for IPv4
-                self.ruleset["nftables"].append({
-                    "set": {
-                        "family": "ip",
-                        "table": "filter",
-                        "name": f"ez_{interface}_drop_list",
-                        "type": "ipv4_addr",
-                        "flags": ["interval"]
-                    }
-                })
-
-        for interface in self.sets['ipv6']['interfaces']:
-            if interface != 'any':  # Skip 'any' as we handle it separately
-                # Drop list for IPv6
-                self.ruleset["nftables"].append({
-                    "set": {
-                        "family": "ip6",
-                        "table": "filter",
-                        "name": f"ez_{interface}_drop_list",
-                        "type": "ipv6_addr", 
-                        "flags": ["interval"]
-                    }
-                })
-
-        # Create global DROP sets for 'any' interface if needed
-        if self.sets['ipv4']['has_any']:
-            # Global drop list for IPv4 (any interface)
+        """Create sets for managing DROP IP addresses per service"""
+        # Create DROP sets per interface+rule_name for IPv4
+        for drop_set in self.sets['ipv4']['drop_sets']:
             self.ruleset["nftables"].append({
                 "set": {
                     "family": "ip",
                     "table": "filter",
-                    "name": "ez_any_drop_list",
+                    "name": f"ez_{drop_set['interface']}_{drop_set['rule_name']}_drop",
                     "type": "ipv4_addr",
                     "flags": ["interval"]
                 }
             })
 
-        if self.sets['ipv6']['has_any']:
-            # Global drop list for IPv6 (any interface)
+        # Create DROP sets per interface+rule_name for IPv6
+        for drop_set in self.sets['ipv6']['drop_sets']:
             self.ruleset["nftables"].append({
                 "set": {
                     "family": "ip6",
                     "table": "filter",
-                    "name": "ez_any_drop_list",
+                    "name": f"ez_{drop_set['interface']}_{drop_set['rule_name']}_drop",
+                    "type": "ipv6_addr",
+                    "flags": ["interval"]
+                }
+            })
+
+        # Create global DROP sets for 'any' interface if needed
+        for rule_name in self.sets['ipv4']['any_rules']:
+            self.ruleset["nftables"].append({
+                "set": {
+                    "family": "ip",
+                    "table": "filter",
+                    "name": f"ez_any_{rule_name}_drop",
+                    "type": "ipv4_addr",
+                    "flags": ["interval"]
+                }
+            })
+
+        for rule_name in self.sets['ipv6']['any_rules']:
+            self.ruleset["nftables"].append({
+                "set": {
+                    "family": "ip6",
+                    "table": "filter",
+                    "name": f"ez_any_{rule_name}_drop",
                     "type": "ipv6_addr",
                     "flags": ["interval"]
                 }
@@ -129,12 +126,12 @@ class JsonBuilder:
         
         # IPv4 chains
         self._create_input_chain("ip", config['ipv4']['input_default_policy'])
-        self._create_forward_chain("ip")
+        self._create_forward_chain("ip", config['ipv4']['forward_default_policy'])
         self._create_output_chain("ip")
         
         # IPv6 chains
         self._create_input_chain("ip6", config['ipv6']['input_default_policy'])
-        self._create_forward_chain("ip6")
+        self._create_forward_chain("ip6", config['ipv6']['forward_default_policy'])
         self._create_output_chain("ip6")
         
     def _create_input_chain(self, family, policy):
@@ -151,7 +148,7 @@ class JsonBuilder:
             }
         })
         
-    def _create_forward_chain(self, family):
+    def _create_forward_chain(self, family, policy):
         """Create FORWARD chain for specified family"""
         self.ruleset["nftables"].append({
             "chain": {
@@ -161,7 +158,7 @@ class JsonBuilder:
                 "type": "filter",
                 "hook": "forward",
                 "prio": 0,
-                "policy": "drop"
+                "policy": policy
             }
         })
         
@@ -242,6 +239,46 @@ class JsonBuilder:
                             }
                         },
                         {"accept": None}
+                    ]
+                }
+            })
+
+            # Connection tracking rules for the FORWARD chain - accept established
+            # and related traffic so that the return packets of forwarded
+            # connections are not dropped by the default 'drop' policy
+            self.ruleset["nftables"].append({
+                "rule": {
+                    "family": family,
+                    "table": "filter",
+                    "chain": "FORWARD",
+                    "expr": [
+                        {
+                            "match": {
+                                "op": "==",
+                                "left": {"ct": {"key": "state"}},
+                                "right": {"set": ["established", "related"]}
+                            }
+                        },
+                        {"accept": None}
+                    ]
+                }
+            })
+
+            # Drop invalid packets in the FORWARD chain
+            self.ruleset["nftables"].append({
+                "rule": {
+                    "family": family,
+                    "table": "filter",
+                    "chain": "FORWARD",
+                    "expr": [
+                        {
+                            "match": {
+                                "op": "==",
+                                "left": {"ct": {"key": "state"}},
+                                "right": "invalid"
+                            }
+                        },
+                        {"drop": None}
                     ]
                 }
             })
@@ -389,8 +426,8 @@ class JsonBuilder:
     #   Add IP addresses to drop sets only
     #
     #-----------------------------------------------------------------------------------------------
-    def add_to_drop_set(self, family, interface, ip_addresses):
-        """Add IP addresses to the drop set for a specific interface"""
+    def add_to_drop_set(self, family, interface, rule_name, ip_addresses):
+        """Add IP addresses to the drop set for a specific interface and rule"""
         if not ip_addresses:
             return
             
@@ -400,12 +437,14 @@ class JsonBuilder:
             if ip != "any":
                 formatted_ips.append(self.format_ip_address(ip))
         
+        set_name = f"ez_{interface}_{rule_name}_drop"
+        
         if formatted_ips:
             self.ruleset["nftables"].append({
                 "element": {
                     "family": family,
                     "table": "filter",
-                    "name": f"ez_{interface}_drop_list",
+                    "name": set_name,
                     "elem": formatted_ips
                 }
             })
@@ -514,7 +553,7 @@ class JsonBuilder:
     #   Generate drop rules
     #
     #-----------------------------------------------------------------------------------------------
-    def add_drop_rule(self, family, interface, protocol, ports, use_sets=True):
+    def add_drop_rule(self, family, interface, rule_name, protocol, ports, use_sets=True):
         """Add a drop rule to the ruleset using sets for IP management"""
         rule_expr = []
         
@@ -530,24 +569,14 @@ class JsonBuilder:
         
         # Add source IP match using the appropriate drop set
         if use_sets:
-            if interface == 'any':
-                # Use global drop set for any interface
-                rule_expr.append({
-                    "match": {
-                        "op": "==",
-                        "left": {"payload": {"protocol": family, "field": "saddr"}},
-                        "right": "@ez_any_drop_list"
-                    }
-                })
-            elif interface != 'any':
-                # Use interface-specific drop set
-                rule_expr.append({
-                    "match": {
-                        "op": "==",
-                        "left": {"payload": {"protocol": family, "field": "saddr"}},
-                        "right": f"@ez_{interface}_drop_list"
-                    }
-                })
+            set_name = f"ez_{interface}_{rule_name}_drop"
+            rule_expr.append({
+                "match": {
+                    "op": "==",
+                    "left": {"payload": {"protocol": family, "field": "saddr"}},
+                    "right": f"@{set_name}"
+                }
+            })
         
         # Add protocol and port matches
         if protocol == 'any' and 'any' not in ports and ports:
@@ -610,6 +639,125 @@ class JsonBuilder:
 
     #-----------------------------------------------------------------------------------------------
     #
+    #   Add forward rule
+    #
+    #-----------------------------------------------------------------------------------------------
+    def add_forward_rule(self, family: str, expressions: list, action, log_prefix=None):
+        """Add a forward rule to the ruleset"""
+        
+        rule_expr = expressions.copy()
+        
+        # Add log expression if log_prefix is provided
+        if log_prefix:
+            rule_expr.append({
+                "log": {
+                    "prefix": log_prefix
+                }
+            })
+            
+        # Add action expression
+        if isinstance(action, str):
+            rule_expr.append({action: None})
+        else:
+            rule_expr.append(action)
+        
+        # Add the rule to the ruleset
+        self.ruleset["nftables"].append({
+            "rule": {
+                "family": family,
+                "table": "filter",
+                "chain": "FORWARD",
+                "expr": rule_expr
+            }
+        })
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Add NAT rule
+    #
+    #-----------------------------------------------------------------------------------------------
+    def add_nat_rule(self, family: str, chain: str, expressions: list, action):
+        """Add a NAT rule to the ruleset"""
+        
+        rule_expr = expressions.copy()
+        
+        # Add action expression
+        if isinstance(action, str):
+            rule_expr.append({action: None})
+        else:
+            rule_expr.append(action)
+        
+        # Add the rule to the ruleset
+        self.ruleset["nftables"].append({
+            "rule": {
+                "family": family,
+                "table": "nat",
+                "chain": chain.upper(),
+                "expr": rule_expr
+            }
+        })
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Create NAT tables
+    #
+    #-----------------------------------------------------------------------------------------------
+    def create_nat_tables(self):
+        """Create IPv4 and IPv6 NAT tables"""
+        # IPv4 NAT table
+        self.ruleset["nftables"].append({
+            "table": {
+                "family": "ip",
+                "name": "nat"
+            }
+        })
+        
+        # IPv6 NAT table
+        self.ruleset["nftables"].append({
+            "table": {
+                "family": "ip6",
+                "name": "nat"
+            }
+        })
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Create NAT chains
+    #
+    #-----------------------------------------------------------------------------------------------
+    def create_nat_chains(self):
+        """Create NAT chains for both IPv4 and IPv6"""
+        
+        families = ["ip", "ip6"]
+        for family in families:
+            # PREROUTING chain
+            self.ruleset["nftables"].append({
+                "chain": {
+                    "family": family,
+                    "table": "nat",
+                    "name": "PREROUTING",
+                    "type": "nat",
+                    "hook": "prerouting",
+                    "prio": -100,
+                    "policy": "accept"
+                }
+            })
+            
+            # POSTROUTING chain
+            self.ruleset["nftables"].append({
+                "chain": {
+                    "family": family,
+                    "table": "nat",
+                    "name": "POSTROUTING",
+                    "type": "nat",
+                    "hook": "postrouting",
+                    "prio": 100,
+                    "policy": "accept"
+                }
+            })
+
+    #-----------------------------------------------------------------------------------------------
+    #
     #   Build complete ruleset
     #
     #-----------------------------------------------------------------------------------------------
@@ -617,8 +765,10 @@ class JsonBuilder:
         """Build the complete nftables ruleset"""
         self.flush_ruleset()
         self.create_tables()
+        self.create_nat_tables()
         self.create_sets()
         self.create_chains(config)
+        self.create_nat_chains()
         self.add_base_rules(config)
         
     #-----------------------------------------------------------------------------------------------
@@ -638,40 +788,6 @@ class JsonBuilder:
 
     #-----------------------------------------------------------------------------------------------
     #
-    #   Check ruleset validity
-    #
-    #-----------------------------------------------------------------------------------------------
-    def check(self):
-        """Check if the ruleset is valid"""
-        try:
-            # Test the ruleset without applying it
-            rc, output, error = self.nft.cmd(json.dumps(self.ruleset))
-            
-            if rc != 0:
-                raise Exception('invalid nftables ruleset: ' + error)
-                
-        except Exception as e:
-            raise Exception('Error checking ruleset: ' + str(e))
-
-    #-----------------------------------------------------------------------------------------------
-    #
-    #   Apply ruleset
-    #
-    #-----------------------------------------------------------------------------------------------
-    def apply(self):
-        """Apply the ruleset to nftables"""
-        try:
-            # Apply the ruleset
-            rc, output, error = self.nft.cmd(json.dumps(self.ruleset))
-            
-            if rc != 0:
-                raise Exception(error)
-                
-        except Exception as e:
-            raise Exception('Error applying ruleset: ' + str(e))
-
-    #-----------------------------------------------------------------------------------------------
-    #
     #   Get current ruleset as JSON
     #
     #-----------------------------------------------------------------------------------------------
@@ -685,17 +801,21 @@ class JsonBuilder:
     #
     #-----------------------------------------------------------------------------------------------
     def prepare_sets(self, content):
-        """Prepare sets for nftables configuration"""
-        # In the rules file, loop through every interface to apply their rules
-        for interface in content:    
-            if "ipv4" in content[interface]:
-                if interface == 'any':
-                    self.sets['ipv4']['has_any'] = True
-                else:
-                    self.sets['ipv4']['interfaces'].append(interface)
-
-            if "ipv6" in content[interface]:
-                if interface == 'any':
-                    self.sets['ipv6']['has_any'] = True
-                else:
-                    self.sets['ipv6']['interfaces'].append(interface)
+        """Prepare sets for nftables configuration - one set per interface+rule_name"""
+        for interface in content:
+            for ip_version_key, family_key in [("ipv4", "ipv4"), ("ipv6", "ipv6")]:
+                if ip_version_key not in content[interface]:
+                    continue
+                if 'input' not in content[interface][ip_version_key]:
+                    continue
+                for rule_name in content[interface][ip_version_key]['input']:
+                    if 'drop' not in content[interface][ip_version_key]['input'][rule_name]:
+                        continue
+                    if interface == 'any':
+                        self.sets[family_key]['has_any'] = True
+                        if rule_name not in self.sets[family_key]['any_rules']:
+                            self.sets[family_key]['any_rules'].append(rule_name)
+                    else:
+                        entry = {'interface': interface, 'rule_name': rule_name}
+                        if entry not in self.sets[family_key]['drop_sets']:
+                            self.sets[family_key]['drop_sets'].append(entry)

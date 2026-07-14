@@ -38,7 +38,7 @@
         <div>
             <h6 class="margin-top-0 margin-bottom-20">IP LOCATION</h6>
 
-            <div class="ip-location grid grid-2 column-gap-15 row-gap-15" ip="<?= $ip ?>">            
+            <div class="ip-location grid grid-2 column-gap-15 row-gap-10" ip="<?= $ip ?>">            
                 <p>Country</p>
                 <div class="flex align-item-center column-gap-10">
                     <p class="ip-location-country">Loading...</p>

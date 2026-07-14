@@ -187,7 +187,8 @@ jobs:
           release_name: ${{ env.VERSION }}
           body: |
             **Changes**
-              - Now using libnftables lib to interact with nftables
+              - Added forward rules handling (beta)
+              - Various bug fixes
               - Various UI fixes and improvements
           draft: false
           prerelease: false

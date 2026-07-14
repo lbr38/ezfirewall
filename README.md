@@ -165,6 +165,70 @@ eth0:
     
 ```
 
+Advanced ruleset example (forward)
+----------------------------------
+
+This is an example of a forward ruleset. It allows traffic from the LAN to the WAN and blocks traffic from the guest network to the LAN.
+
+```shell
+vim /opt/ezfirewall/rules/eth0.yml
+```
+
+```yaml
+---
+eth0:
+  ipv4:
+    forward:
+      lan_to_wan:
+        action: accept
+        log: true
+        log_prefix: FW-LAN-WAN
+        rules:
+          - from_interface: br0
+            to_interface: eth0
+            from_source: home_lan
+            protocol: tcp
+            to_port: 443
+
+          - from_interface: br0
+            to_interface: eth0
+            from_source: home_lan
+            protocol: udp
+            to_port: 53
+
+      block_guest_to_lan:
+        action: drop
+        rules:
+          - from_interface: br1
+            to_interface: br0
+            from_source: guest_lan
+
+  ipv6:
+    forward:
+      allow_v6_dns:
+        action: accept
+        rules:
+          - from_interface: br0
+            to_interface: eth0
+            from_source: 2001:db8:1::/64
+            protocol: udp
+            to_port: 53
+```
+
+Forward rule fields:
+
+- `action` (optional): `accept` (default) or `drop`.
+- `log` (optional): `true`/`false` (default `false`).
+- `log_prefix` (optional): custom nftables log prefix.
+- `rules` (required): list of match objects.
+- Match object fields (all optional): `from_interface`, `to_interface`, `from_source`, `to_destination`, `protocol`, `from_port`, `to_port`.
+
+Notes:
+
+- `from_source` and `to_destination` can be either a source alias from `/opt/ezfirewall/sources/*.yml` or a direct IP/CIDR value.
+- `protocol` defaults to `any`.
+- `from_port` and `to_port` are only applied when `protocol` is `tcp` or `udp`.
+
 Apply the rules
 ---------------
 
@@ -223,18 +287,20 @@ restart_services:
 Web interface
 =============
 
-The web interface is still work in progress / beta. More features will be added in the future.
+A web interface is available to easily visualize the dropped traffic.
 
 <div align="center">
-    <img src="https://github.com/user-attachments/assets/63f14051-9958-4fd6-854d-6c47d9b9aab0" width=30% align="top">
+    <img src="https://github.com/user-attachments/assets/b42d27e9-4d83-4245-b771-33aa1a094b6e">
     &nbsp;
-    <img src="https://github.com/user-attachments/assets/1ce33e48-7340-4e35-bc17-6283746df24f" width=30% align="top">
+    <img src="https://github.com/user-attachments/assets/20b3c3f2-66b3-46f3-baa2-7ee9492bce6c">
     &nbsp;
-    <img src="https://github.com/user-attachments/assets/1029ca8b-192e-4f1b-981c-829c04d18aeb" width=30% align="top">
+    <img src="https://github.com/user-attachments/assets/ec0801b2-a9f7-42e5-b28e-8e02790b1b41">
+    &nbsp;
+    <img src="https://github.com/user-attachments/assets/721aaaf7-2210-40d1-ad5f-3995cce2c828">
 </div>
 <br>
 
-**Requirements**
+**Requirements to use the web interface**:
 
 - Set the `log_dropped_traffic` options to `True` in the configuration file to enable logging of dropped packets.
 - You will need a web server with PHP 8.2 or newer and PHP SQLite, Yaml extensions installed (`php8.x-sqlite3`, `php8.x-yaml` on Debian based OS).

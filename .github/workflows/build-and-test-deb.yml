@@ -3,9 +3,6 @@ name: Build and test deb package for ezfirewall
 on:
   push:
     branches: [ devel ]
-  pull_request:
-    push:
-      branches: [ main ]
 
 jobs:
   build-deb:
@@ -197,33 +194,65 @@ jobs:
         run: python3 /opt/ezfirewall/ezfirewall.py --help
 
 
-  # Try to install package on Ubuntu (latest)
-  install-ubuntu-latest:
-    name: Install (latest Ubuntu)
+  # Try to install package on Ubuntu 24.04
+  install-ubuntu-2404:
+    name: Install (Ubuntu 24.04)
     needs:
       build-deb
     runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+      options: --user root
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Get ezfirewall version
         run: echo "VERSION=$(cat ${GITHUB_WORKSPACE}/version)" >> $GITHUB_ENV
-
+ 
       # Download builded deb package artifact
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: ezfirewall-test-build_${{ env.VERSION }}_all.deb
 
-      - name: Remove ufw
-        run: sudo apt remove -y ufw
-
       - name: Install package
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y ./ezfirewall-test-build_${{ env.VERSION }}_all.deb
+          apt-get update -y
+          apt-get install -y ./ezfirewall-test-build_${{ env.VERSION }}_all.deb
 
       # Tests some params
       - name: "Run test: print help"
-        run: sudo python3 /opt/ezfirewall/ezfirewall.py --help
+        run: python3 /opt/ezfirewall/ezfirewall.py --help
+
+
+  # Try to install package on Ubuntu 26.04
+  install-ubuntu-2604:
+    name: Install (Ubuntu 26.04)
+    needs:
+      build-deb
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:26.04
+      options: --user root
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get ezfirewall version
+        run: echo "VERSION=$(cat ${GITHUB_WORKSPACE}/version)" >> $GITHUB_ENV
+ 
+      # Download builded deb package artifact
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ezfirewall-test-build_${{ env.VERSION }}_all.deb
+
+      - name: Install package
+        run: |
+          apt-get update -y
+          apt-get install -y ./ezfirewall-test-build_${{ env.VERSION }}_all.deb
+
+      # Tests some params
+      - name: "Run test: print help"
+        run: python3 /opt/ezfirewall/ezfirewall.py --help

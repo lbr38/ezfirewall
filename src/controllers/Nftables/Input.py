@@ -1,8 +1,5 @@
 # coding: utf-8
 
-# Import libraries
-import re
-
 # Import classes
 from src.controllers.Nftables.JsonBuilder import JsonBuilder
 from src.controllers.Source import Source
@@ -12,11 +9,11 @@ class Input:
         self.jsonBuilder = JsonBuilder()
         self.sourceController = Source()
         
-        # Track IPs for drop sets only - allow rules are individual
-        self.interface_drop_ips = {}   # {interface: {family: [ips]}}
+        # Track IPs for drop sets per service: {interface: {rule_name: {family: [ips]}}}
+        self.interface_drop_ips = {}
         
-        # Track global IPs for 'any' interface - drop only
-        self.any_drop_ips = {'ip': [], 'ip6': []}   # Global drop IPs
+        # Track global IPs for 'any' interface per service: {rule_name: {family: [ips]}}
+        self.any_drop_ips = {}
 
     #-----------------------------------------------------------------------------------------------
     #
@@ -46,8 +43,8 @@ class Input:
     #   Generate drop input rules with sets
     #
     #-----------------------------------------------------------------------------------------------
-    def generate_drop_rules(self, ip_version: str, interface: str, sources: list, protocol: str, ports: list):
-        """Generate drop rules using sets for IP management"""
+    def generate_drop_rules(self, ip_version: str, interface: str, rule_name: str, sources: list, protocol: str, ports: list):
+        """Generate drop rules using sets for IP management, per service"""
         
         # Set the IP family based on the IP version
         family = 'ip' if ip_version == 'ipv4' else 'ip6'
@@ -60,24 +57,26 @@ class Input:
             ips.append(ip)
         
         # Validate IP list for conflicts
-        if not self.jsonBuilder.validate_ip_list(ips, interface, f"drop rules ({protocol})"):
-            raise Exception(f"IP address conflicts detected in {interface} drop rules. Please fix the conflicts and try again.")
+        if not self.jsonBuilder.validate_ip_list(ips, interface, f"drop rules ({rule_name})"):
+            raise Exception(f"IP address conflicts detected in {interface}/{rule_name} drop rules. Please fix the conflicts and try again.")
 
         if interface == 'any':
-            # Handle global 'any' interface
+            # Handle global 'any' interface, per rule_name
+            if rule_name not in self.any_drop_ips:
+                self.any_drop_ips[rule_name] = {'ip': [], 'ip6': []}
             for ip in ips:
-                if ip not in self.any_drop_ips[family]:
-                    self.any_drop_ips[family].append(ip)
+                if ip not in self.any_drop_ips[rule_name][family]:
+                    self.any_drop_ips[rule_name][family].append(ip)
         else:
-            # Handle specific interface
-            # Initialize interface tracking if not exists
+            # Handle specific interface, per rule_name
             if interface not in self.interface_drop_ips:
-                self.interface_drop_ips[interface] = {'ip': [], 'ip6': []}
+                self.interface_drop_ips[interface] = {}
+            if rule_name not in self.interface_drop_ips[interface]:
+                self.interface_drop_ips[interface][rule_name] = {'ip': [], 'ip6': []}
             
-            # Collect all IPs for this interface
             for ip in ips:
-                if ip not in self.interface_drop_ips[interface][family]:
-                    self.interface_drop_ips[interface][family].append(ip)
+                if ip not in self.interface_drop_ips[interface][rule_name][family]:
+                    self.interface_drop_ips[interface][rule_name][family].append(ip)
 
     #-----------------------------------------------------------------------------------------------
     #
@@ -85,19 +84,20 @@ class Input:
     #
     #-----------------------------------------------------------------------------------------------
     def finalize_sets_and_rules(self):
-        """Add collected DROP IPs to sets - ALLOW rules are already created individually"""
+        """Add collected DROP IPs to sets per service"""
         
         # Add global 'any' DROP IPs to their sets
-        for family in ['ip', 'ip6']:
-            if self.any_drop_ips[family]:
-                self.jsonBuilder.add_to_drop_set(family, 'any', self.any_drop_ips[family])
-        
-        # Add IPs to interface-specific drop sets  
-        for interface in self.interface_drop_ips:
+        for rule_name in self.any_drop_ips:
             for family in ['ip', 'ip6']:
-                if self.interface_drop_ips[interface][family]:
-                    # Add IPs to the drop set
-                    self.jsonBuilder.add_to_drop_set(family, interface, self.interface_drop_ips[interface][family])
+                if self.any_drop_ips[rule_name][family]:
+                    self.jsonBuilder.add_to_drop_set(family, 'any', rule_name, self.any_drop_ips[rule_name][family])
+        
+        # Add IPs to interface+rule_name specific drop sets
+        for interface in self.interface_drop_ips:
+            for rule_name in self.interface_drop_ips[interface]:
+                for family in ['ip', 'ip6']:
+                    if self.interface_drop_ips[interface][rule_name][family]:
+                        self.jsonBuilder.add_to_drop_set(family, interface, rule_name, self.interface_drop_ips[interface][rule_name][family])
 
     #-----------------------------------------------------------------------------------------------
     #
@@ -105,46 +105,50 @@ class Input:
     #
     #-----------------------------------------------------------------------------------------------
     def create_set_based_rules(self, rules_data):
-        """Create DROP rules that use sets - ALLOW rules are already individual"""
+        """Create DROP rules that use per-service sets"""
         
-        # Group DROP rules by interface and protocol/ports to avoid duplicates
+        # Group DROP rules by interface+rule_name and protocol/ports to avoid duplicates
         interface_drop_rules = {}
         
         for rule_data in rules_data:
             if rule_data['type'] != 'drop':
-                continue  # Skip allow rules - they're already handled individually
+                continue
                 
             ip_version = rule_data['ip_version']
-            interface = rule_data['interface'] 
+            interface = rule_data['interface']
+            rule_name = rule_data['rule_name']
             protocol = rule_data['protocol']
             ports = rule_data['ports']
             
             family = 'ip' if ip_version == 'ipv4' else 'ip6'
-            rule_key = f"{interface}_{family}_{protocol}_{','.join(map(str, ports))}_drop"
+            rule_key = f"{interface}_{rule_name}_{family}_{protocol}_{','.join(map(str, ports))}_drop"
             
             if rule_key not in interface_drop_rules:
                 interface_drop_rules[rule_key] = {
                     'family': family,
                     'interface': interface,
+                    'rule_name': rule_name,
                     'protocol': protocol,
                     'ports': ports
                 }
         
-        # Create DROP rules that use the sets
+        # Create DROP rules that use the per-service sets
         for rule_data in interface_drop_rules.values():
-            # Check if we have IPs in the appropriate drop set
             has_ips = False
             if rule_data['interface'] == 'any':
-                has_ips = bool(self.any_drop_ips[rule_data['family']])
+                has_ips = (rule_data['rule_name'] in self.any_drop_ips and
+                          bool(self.any_drop_ips[rule_data['rule_name']][rule_data['family']]))
             else:
-                has_ips = (rule_data['interface'] in self.interface_drop_ips and 
-                          self.interface_drop_ips[rule_data['interface']][rule_data['family']])
+                has_ips = (rule_data['interface'] in self.interface_drop_ips and
+                          rule_data['rule_name'] in self.interface_drop_ips[rule_data['interface']] and
+                          bool(self.interface_drop_ips[rule_data['interface']][rule_data['rule_name']][rule_data['family']]))
             
             if has_ips:
                 self.jsonBuilder.add_drop_rule(
-                    rule_data['family'], 
-                    rule_data['interface'], 
-                    rule_data['protocol'], 
+                    rule_data['family'],
+                    rule_data['interface'],
+                    rule_data['rule_name'],
+                    rule_data['protocol'],
                     rule_data['ports']
                 )
 
@@ -177,25 +181,7 @@ class Input:
 
     #-----------------------------------------------------------------------------------------------
     #
-    #   Check ruleset validity
-    #
-    #-----------------------------------------------------------------------------------------------
-    def check(self):
-        """Check if the ruleset is valid"""
-        self.jsonBuilder.check()
-
-    #-----------------------------------------------------------------------------------------------
-    #
-    #   Apply the ruleset
-    #
-    #-----------------------------------------------------------------------------------------------
-    def apply(self):
-        """Apply the ruleset to nftables"""
-        self.jsonBuilder.apply()
-
-    #-----------------------------------------------------------------------------------------------
-    #
-    #   Get ruleset as JSON string (for debugging)
+    #   Get ruleset as JSON string
     #
     #-----------------------------------------------------------------------------------------------
     def get_ruleset_json(self):
