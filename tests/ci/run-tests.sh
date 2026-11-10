@@ -54,6 +54,10 @@ python3 --version
 nft --version
 nft list ruleset > /dev/null || fail "nftables cannot be used, is the container started with --cap-add=NET_ADMIN?"
 
+# CI containers come with iptables-nft rules (docker embedded DNS) that nftables cannot re-create after a
+# restore (xtables expressions, see the README), start from an empty ruleset so that the restore test is deterministic
+nft flush ruleset
+
 # Initial state, used to check the restore at the end
 INITIAL_RULESET="$(ruleset)"
 INITIAL_CONF_SUM="$(sha256sum "$NFTABLES_CONF" 2>/dev/null | cut -d' ' -f1 || true)"
