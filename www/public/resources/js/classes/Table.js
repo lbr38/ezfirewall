@@ -14,7 +14,7 @@ class Table {
                     // Controller:
                     'general',
                     // Action:
-                    'getTable',
+                    'get-table',
                     // Data:
                     {
                         table: table,
@@ -28,18 +28,39 @@ class Table {
                     // Print error alert:
                     true
                 ).then(() => {
-                    // Replace table with itself, with new content
-                    $('.reloadable-table[table="' + table + '"]').replaceWith(jsonValue.message);
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(jsonValue.message, 'text/html');
+                    const element = doc.querySelector('.reloadable-table[table="' + table + '"]');
+                    const html = element ? element.outerHTML : '';
 
-                    // Hide loading icon
-                    mylayout.hideLoading();
+                    // Keep the text field the user is typing in, if any
+                    const focusedField = mylayout.getFocusedField($('.reloadable-table[table="' + table + '"]'));
+
+                    // Replace table with itself, with new content
+                    $('.reloadable-table[table="' + table + '"]').replaceWith(html);
+
+                    mylayout.restoreFocusedField(focusedField);
 
                     // Resolve promise
                     resolve('Table reloaded');
+                }).catch((e) => {
+                    // Log error to console
+                    console.error('Failed to reload table ' + table + ': ' + e);
+
+                    // Print error to the user
+                    myalert.print(e, 'error');
+
+                    // Reject promise
+                    reject('Failed to reload table ' + table + ': ' + e);
+                }).finally(() => {
+                    // Hide loading icon
+                    mylayout.hideLoading();
                 });
             } catch (error) {
+                // Catch synchronous errors (before the ajax request is sent)
+
                 // Reject promise
-                reject('Failed to reload table');
+                reject('Failed to reload table, synchronous error: ' + error.message);
             }
         });
     }
