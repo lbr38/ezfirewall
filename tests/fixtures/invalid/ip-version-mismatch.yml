@@ -1,0 +1,8 @@
+# IPv6 source used in an ipv4 section: must be rejected
+eth0:
+  ipv4:
+    input:
+      ssh:
+        protocol: tcp
+        ports: 22
+        allow: admin_v6

@@ -1,0 +1,62 @@
+---
+eth0:
+  ipv4:
+    input:
+      ssh:
+        protocol: tcp
+        ports: 22
+        allow:
+          - admin_lan
+          - admin_host
+        drop:
+          - bad_ip
+      web:
+        protocol: any
+        ports: [80, 443]
+        allow: any
+      ping:
+        protocol: icmp
+        allow: any
+
+    output:
+      dns:
+        protocol: udp
+        ports: 53
+        allow:
+          - 9.9.9.9
+      ssh:
+        protocol: tcp
+        ports: 22
+        allow: admin_host
+
+    forward:
+      lan_to_wan:
+        action: accept
+        log: true
+        log_prefix: FW-LAN-WAN
+        rules:
+          - from_interface: br0
+            to_interface: eth0
+            from_source: admin_lan
+            protocol: tcp
+            to_port: [80, 443]
+
+    nat:
+      prerouting:
+        web_dnat:
+          in_interface: eth0
+          protocol: tcp
+          to_port: 8080
+          to_destination: web_server
+      postrouting:
+        lan_masquerade:
+          out_interface: eth0
+          source: admin_lan
+          masquerade: true
+
+  ipv6:
+    input:
+      ssh:
+        protocol: tcp
+        ports: 22
+        allow: admin_v6

@@ -1,0 +1,12 @@
+# Same rule defined twice in the same file: must be rejected
+eth0:
+  ipv4:
+    input:
+      ssh:
+        protocol: tcp
+        ports: 22
+        allow: any
+      ssh:
+        protocol: tcp
+        ports: 2222
+        allow: any

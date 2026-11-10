@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: centos:8
-      options: --user root
+      options: --user root --cap-add=NET_ADMIN
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -154,6 +154,9 @@ jobs:
       - name: "Run test: print help"
         run: python3 /opt/ezfirewall/ezfirewall.py --help
 
+      - name: "Run test: apply, persist, print and restore rules"
+        run: bash ${GITHUB_WORKSPACE}/tests/ci/run-tests.sh
+
 
   # Try to install package on Rocky Linux 9
   install-rockylinux9:
@@ -163,7 +166,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: rockylinux/rockylinux:9
-      options: --user root
+      options: --user root --cap-add=NET_ADMIN
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -189,6 +192,9 @@ jobs:
       # Tests some params
       - name: "Run test: print help"
         run: python3 /opt/ezfirewall/ezfirewall.py --help
+
+      - name: "Run test: apply, persist, print and restore rules"
+        run: bash ${GITHUB_WORKSPACE}/tests/ci/run-tests.sh
 
 
   # Try to install package on Alma Linux 9
@@ -199,7 +205,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: almalinux:9
-      options: --user root
+      options: --user root --cap-add=NET_ADMIN
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -225,6 +231,9 @@ jobs:
       # Tests some params
       - name: "Run test: print help"
         run: python3 /opt/ezfirewall/ezfirewall.py --help
+
+      - name: "Run test: apply, persist, print and restore rules"
+        run: bash ${GITHUB_WORKSPACE}/tests/ci/run-tests.sh
 
 
   # Try to install package on Alma Linux 10
@@ -235,7 +244,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: almalinux:10
-      options: --user root
+      options: --user root --cap-add=NET_ADMIN
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -261,3 +270,6 @@ jobs:
       # Tests some params
       - name: "Run test: print help"
         run: python3 /opt/ezfirewall/ezfirewall.py --help
+
+      - name: "Run test: apply, persist, print and restore rules"
+        run: bash ${GITHUB_WORKSPACE}/tests/ci/run-tests.sh

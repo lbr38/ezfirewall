@@ -1,0 +1,8 @@
+# Typo in a parameter name: must be rejected, never silently ignored
+eth0:
+  ipv4:
+    input:
+      ssh:
+        protocol: tcp
+        prots: 22
+        allow: any

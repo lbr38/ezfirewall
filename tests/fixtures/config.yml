@@ -1,0 +1,14 @@
+# Configuration used by the CI tests
+# IPv4 output policy is 'drop' to test the output chain, IPv6 keeps the default values
+ipv4:
+  input_default_policy: drop
+  output_default_policy: drop
+  forward_default_policy: drop
+  log_dropped_traffic: true
+ipv6:
+  input_default_policy: drop
+  output_default_policy: accept
+  forward_default_policy: drop
+  log_dropped_traffic: false
+log_retention_days: 30
+restart_services: []

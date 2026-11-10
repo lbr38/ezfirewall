@@ -1,0 +1,8 @@
+---
+# Documentation address ranges only (RFC 5737 / RFC 3849)
+admin_lan: 192.168.100.0/24
+admin_host: 198.51.100.10
+web_server: 192.168.100.10
+bad_ip: 203.0.113.66
+bad_net: 192.0.2.0/24
+admin_v6: 2001:db8:100::/64

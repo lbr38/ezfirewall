@@ -1,0 +1,12 @@
+---
+any:
+  ipv4:
+    input:
+      dns:
+        protocol: udp
+        ports: 53
+        drop: bad_net
+    output:
+      malicious:
+        protocol: any
+        drop: bad_net

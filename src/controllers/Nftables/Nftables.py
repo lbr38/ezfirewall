@@ -26,8 +26,16 @@ class Nftables:
         # Backup directory and files
         self.backup_dir = '/opt/ezfirewall/backups'
         backup_prefix = self.backup_dir + '/' + datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        self.ruleset_backup = backup_prefix + '_ruleset.json'
-        self.nftables_conf_backup = backup_prefix + '_nftables.conf'
+
+        # Never overwrite an existing backup (e.g. two runs within the same second)
+        suffix = 1
+        unique_prefix = backup_prefix
+        while Path(unique_prefix + '_ruleset.json').exists():
+            suffix += 1
+            unique_prefix = backup_prefix + '_' + str(suffix)
+
+        self.ruleset_backup = unique_prefix + '_ruleset.json'
+        self.nftables_conf_backup = unique_prefix + '_nftables.conf'
 
         # Path to nftables configuration file
         self.nftables_conf_path = '/etc/nftables.conf'
@@ -86,7 +94,7 @@ class Nftables:
     def get_backup_file(self, name: str = '') -> str:
         """Return the path of the backup file to restore"""
         if not name:
-            backups = sorted(Path(self.backup_dir).glob('*_ruleset.json'))
+            backups = sorted(Path(self.backup_dir).glob('*_ruleset.json'), key = lambda file: (file.stat().st_mtime, file.name))
 
             if not backups:
                 raise Exception('no backup found in ' + self.backup_dir)
@@ -250,8 +258,9 @@ class Nftables:
             result = subprocess.run(
                 [self.nft_bin, '-c', '-j', '-f', '-'],
                 input=ruleset_json,
-                capture_output=True,
-                text=True
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True
             )
 
             if result.returncode != 0:
@@ -292,8 +301,9 @@ class Nftables:
             # Use nft command to get current ruleset in native format (and not JSON)
             result = subprocess.run(
                 [self.nft_bin, 'list', 'ruleset'],
-                capture_output=True,
-                text=True
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True
             )
 
             if result.returncode != 0:
@@ -335,8 +345,9 @@ class Nftables:
             if check:
                 result = subprocess.run(
                     [self.nft_bin, '-c', '-f', tmp_file],
-                    capture_output=True,
-                    text=True
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    universal_newlines=True
                 )
 
                 if result.returncode != 0:

@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: debian:11
-      options: --user root
+      options: --user root --cap-add=NET_ADMIN
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -88,6 +88,17 @@ jobs:
         with:
           name: ezfirewall-test-build_${{ env.VERSION }}_all.deb
 
+      # Debian 11 is no longer supported (LTS ended), its packages are only available on archive.debian.org
+      - name: Use Debian 11 archive repositories
+        run: |
+          cat > /etc/apt/sources.list << EOF
+          deb http://archive.debian.org/debian bullseye main
+          deb http://archive.debian.org/debian bullseye-updates main
+          deb http://archive.debian.org/debian-security bullseye-security main
+          EOF
+          rm -f /etc/apt/sources.list.d/*
+          echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99archive
+
       - name: Install package
         run: |
           apt-get update -y
@@ -96,6 +107,9 @@ jobs:
       # Tests some params
       - name: "Run test: print help"
         run: python3 /opt/ezfirewall/ezfirewall.py --help
+
+      - name: "Run test: apply, persist, print and restore rules"
+        run: bash ${GITHUB_WORKSPACE}/tests/ci/run-tests.sh
 
 
   # Try to install package on Debian 12
@@ -106,7 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: debian:12
-      options: --user root
+      options: --user root --cap-add=NET_ADMIN
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -128,6 +142,9 @@ jobs:
       # Tests some params
       - name: "Run test: print help"
         run: python3 /opt/ezfirewall/ezfirewall.py --help
+
+      - name: "Run test: apply, persist, print and restore rules"
+        run: bash ${GITHUB_WORKSPACE}/tests/ci/run-tests.sh
 
 
   # Try to install package on Debian 13
@@ -138,7 +155,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: debian:13
-      options: --user root
+      options: --user root --cap-add=NET_ADMIN
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -160,6 +177,9 @@ jobs:
       # Tests some params
       - name: "Run test: print help"
         run: python3 /opt/ezfirewall/ezfirewall.py --help
+
+      - name: "Run test: apply, persist, print and restore rules"
+        run: bash ${GITHUB_WORKSPACE}/tests/ci/run-tests.sh
 
 
   # Try to install package on Ubuntu 22.04
@@ -170,7 +190,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ubuntu:22.04
-      options: --user root
+      options: --user root --cap-add=NET_ADMIN
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -192,6 +212,9 @@ jobs:
       # Tests some params
       - name: "Run test: print help"
         run: python3 /opt/ezfirewall/ezfirewall.py --help
+
+      - name: "Run test: apply, persist, print and restore rules"
+        run: bash ${GITHUB_WORKSPACE}/tests/ci/run-tests.sh
 
 
   # Try to install package on Ubuntu 24.04
@@ -202,7 +225,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ubuntu:24.04
-      options: --user root
+      options: --user root --cap-add=NET_ADMIN
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -224,6 +247,9 @@ jobs:
       # Tests some params
       - name: "Run test: print help"
         run: python3 /opt/ezfirewall/ezfirewall.py --help
+
+      - name: "Run test: apply, persist, print and restore rules"
+        run: bash ${GITHUB_WORKSPACE}/tests/ci/run-tests.sh
 
 
   # Try to install package on Ubuntu 26.04
@@ -234,7 +260,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ubuntu:26.04
-      options: --user root
+      options: --user root --cap-add=NET_ADMIN
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -256,3 +282,6 @@ jobs:
       # Tests some params
       - name: "Run test: print help"
         run: python3 /opt/ezfirewall/ezfirewall.py --help
+
+      - name: "Run test: apply, persist, print and restore rules"
+        run: bash ${GITHUB_WORKSPACE}/tests/ci/run-tests.sh

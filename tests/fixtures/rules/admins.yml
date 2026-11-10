@@ -1,0 +1,9 @@
+---
+# Same rule name as in eth0.yml: the rules are merged (ports 22 and 2222)
+eth0:
+  ipv4:
+    input:
+      ssh:
+        protocol: tcp
+        ports: 2222
+        allow: admin_host
