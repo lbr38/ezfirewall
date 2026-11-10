@@ -1,142 +1,98 @@
 from copy import deepcopy
 
 class Merge:
+    def __init__(self):
+        # File in which each rule has been defined first, used to display explicit errors on conflicts
+        self.origins = {}
+
     #-----------------------------------------------------------------------------------------------
     #
-    #   Merge the 'input' sections of the interfaces
+    #   Merge the rules of a file (already validated) into the rules of the previous files
     #
     #-----------------------------------------------------------------------------------------------
-    def merge_interfaces(self, base, new):
+    def merge_interfaces(self, base, new, file):
         result = deepcopy(base)
 
-        for iface_name, iface_data in new.items():
-            if iface_name not in result:
-                # Si l'interface n'existe pas encore, on l'ajoute directement
-                result[iface_name] = iface_data
-            else:
-                # Fusionner les données IPv4 et IPv6 dans la même interface
-                result[iface_name] = self._merge_ip_versions(result[iface_name], iface_data)
+        for interface, iface_data in new.items():
+            for ip_version, ip_data in iface_data.items():
+                target = result.setdefault(interface, {}).setdefault(ip_version, {})
+
+                for section, section_data in ip_data.items():
+                    # NAT rules are organized by chain (prerouting, postrouting), each containing named rules
+                    if section == 'nat':
+                        for chain, chain_rules in section_data.items():
+                            self._merge_section(target.setdefault('nat', {}).setdefault(chain, {}), chain_rules, [interface, ip_version, 'nat', chain], file)
+                    else:
+                        self._merge_section(target.setdefault(section, {}), section_data, [interface, ip_version, section], file)
 
         return result
 
     #-----------------------------------------------------------------------------------------------
     #
-    #   Merge IPv4 and IPv6 data for the same interface
+    #   Merge the rules of a section
     #
     #-----------------------------------------------------------------------------------------------
-    def _merge_ip_versions(self, base_iface, new_iface):
-        merged_iface = deepcopy(base_iface)
+    def _merge_section(self, target, rules, path, file):
+        section = path[2]
 
-        # Fusionner les sections ipv4 et ipv6
-        for ip_version in ["ipv4", "ipv6"]:
-            base_ip_data = base_iface.get(ip_version, {})
-            new_ip_data = new_iface.get(ip_version, {})
+        for rule_name, rule_data in rules.items():
+            location = '/'.join(path + [rule_name])
 
-            if not base_ip_data and not new_ip_data:
+            # New rule, add it
+            if rule_name not in target:
+                target[rule_name] = deepcopy(rule_data)
+                self.origins[location] = file
                 continue
 
-            merged_ip = {}
+            # The rule already exists in a previous file, merge it
+            origin = self.origins[location]
 
-            # Fusionner les sections 'input' et 'output' (fusion au niveau des listes allow/drop/ports)
-            for section in ["input", "output"]:
-                base_section = base_ip_data.get(section, {})
-                new_section = new_ip_data.get(section, {})
-                if base_section or new_section:
-                    merged_ip[section] = self._merge_input_sections(base_section, new_section)
-
-            # Fusionner la section 'forward'
-            base_forward = base_ip_data.get("forward", {})
-            new_forward = new_ip_data.get("forward", {})
-            if base_forward or new_forward:
-                merged_ip["forward"] = self._merge_forward_sections(base_forward, new_forward)
-
-            # Fusionner la section 'nat'
-            base_nat = base_ip_data.get("nat", {})
-            new_nat = new_ip_data.get("nat", {})
-            if base_nat or new_nat:
-                merged_ip["nat"] = self._merge_nat_sections(base_nat, new_nat)
-
-            merged_iface[ip_version] = merged_ip
-
-        return merged_iface
+            if section in ['input', 'output']:
+                target[rule_name] = self._merge_rules(target[rule_name], rule_data, location, origin, file)
+            elif section == 'forward':
+                target[rule_name] = self._merge_forward_rules(target[rule_name], rule_data, location, origin, file)
+            elif target[rule_name] != rule_data:
+                # NAT rules cannot be merged
+                raise Exception('NAT rule "' + location + '" is defined differently in ' + origin + ' and in ' + file + ', please use a different name for each rule')
 
     #-----------------------------------------------------------------------------------------------
     #
-    #   Merge the 'forward' sections of the interfaces
+    #   Merge two input/output rules (only if they use the same protocol)
     #
     #-----------------------------------------------------------------------------------------------
-    def _merge_forward_sections(self, base_forward, new_forward):
-        merged_forward = deepcopy(base_forward)
+    def _merge_rules(self, base_rule, new_rule, location, origin, file):
+        if base_rule['protocol'] != new_rule['protocol']:
+            raise Exception('rule "' + location + '" is defined with protocol "' + base_rule['protocol'] + '" in ' + origin + ' and with protocol "' + new_rule['protocol'] + '" in ' + file + ': rules with the same name can only be merged if they use the same protocol, please use a different name for each rule')
 
-        for rule_name, new_rule_data in new_forward.items():
-            if rule_name in merged_forward:
-                # Si le groupe de règles existe déjà, on concatène les règles sans dupliquer
-                # (les clés scalaires action/log/log_prefix du premier fichier sont conservées)
-                base_rules = merged_forward[rule_name].setdefault('rules', [])
-                for rule in new_rule_data.get('rules', []):
-                    if rule not in base_rules:
-                        base_rules.append(rule)
-            else:
-                # Sinon, on ajoute le nouveau groupe de règles
-                merged_forward[rule_name] = deepcopy(new_rule_data)
-
-        return merged_forward
-
-    #-----------------------------------------------------------------------------------------------
-    #
-    #   Merge the 'nat' sections of the interfaces
-    #
-    #-----------------------------------------------------------------------------------------------
-    def _merge_nat_sections(self, base_nat, new_nat):
-        merged_nat = deepcopy(base_nat)
-
-        # NAT is organized by chain (prerouting, postrouting), each containing named rules
-        for chain, new_rules in new_nat.items():
-            if chain not in merged_nat:
-                merged_nat[chain] = deepcopy(new_rules)
-            else:
-                for rule_name, rule_config in new_rules.items():
-                    # First file wins if the same rule name is defined twice
-                    if rule_name not in merged_nat[chain]:
-                        merged_nat[chain][rule_name] = deepcopy(rule_config)
-
-        return merged_nat
-
-    #-----------------------------------------------------------------------------------------------
-    #
-    #   Merge the 'input' sections of the interfaces
-    #
-    #-----------------------------------------------------------------------------------------------
-    def _merge_input_sections(self, base_input, new_input):
-        merged_input = deepcopy(base_input)
-
-        for rule_name, new_rule_data in new_input.items():
-            if rule_name in merged_input:
-                # Si la règle existe déjà, on fusionne les données
-                merged_input[rule_name] = self._merge_rules(merged_input[rule_name], new_rule_data)
-            else:
-                # Sinon, on ajoute la nouvelle règle
-                merged_input[rule_name] = new_rule_data
-
-        return merged_input
-
-    #-----------------------------------------------------------------------------------------------
-    #
-    #   Merge two rules
-    #
-    #-----------------------------------------------------------------------------------------------
-    def _merge_rules(self, base_rule, new_rule):
         merged_rule = deepcopy(base_rule)
 
-        # Fusionner les listes 'allow' et 'drop'
-        for key in ["allow", "drop"]:
-            if key in new_rule:
-                merged_rule.setdefault(key, [])
-                merged_rule[key] = sorted(set(merged_rule[key] + new_rule[key]))
+        # Merge 'allow' and 'drop' lists
+        for key in ['allow', 'drop']:
+            merged_rule[key] = list(dict.fromkeys(base_rule[key] + new_rule[key]))
 
-        # Fusionner les ports
-        if "ports" in new_rule:
-            merged_rule.setdefault("ports", [])
-            merged_rule["ports"] = sorted(set(merged_rule["ports"] + new_rule["ports"]))
+        # Merge ports ('any' includes all the other ports)
+        if 'any' in base_rule['ports'] or 'any' in new_rule['ports']:
+            merged_rule['ports'] = ['any']
+        else:
+            merged_rule['ports'] = sorted(set(base_rule['ports'] + new_rule['ports']))
 
         return merged_rule
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Merge two forward rule groups (only if they have the same action and logging)
+    #
+    #-----------------------------------------------------------------------------------------------
+    def _merge_forward_rules(self, base_group, new_group, location, origin, file):
+        for key in ['action', 'log', 'log_prefix']:
+            if base_group.get(key) != new_group.get(key):
+                raise Exception('forward rule "' + location + '" is defined with a different "' + key + '" in ' + origin + ' and in ' + file + ': forward rules with the same name can only be merged if they have the same action and logging parameters')
+
+        merged_group = deepcopy(base_group)
+
+        # Concatenate the rules without duplicates
+        for rule in new_group['rules']:
+            if rule not in merged_group['rules']:
+                merged_group['rules'].append(deepcopy(rule))
+
+        return merged_group

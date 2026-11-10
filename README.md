@@ -20,7 +20,10 @@ Available parameters:
   --quiet, -q         : Enable quiet mode (answer yes to all questions)
   --debug             : Enable debug mode
   --dry-run, -d       : Enable dry run mode
+  --no-persist        : Do not save rules to /etc/nftables.conf
+  --print, -p         : Print the rules currently in place
   --list-sources, -ls : List current sources
+  --restore [file]    : Restore a backup of the ruleset (the most recent one if no file is specified)
 ```
 
 Install
@@ -138,7 +141,9 @@ eth0:
     input:
       # The rule description name
       ssh:
-        # The protocol (tcp or udp or icmp) (use 'any' to apply to both tcp and udp)
+        # The protocol (tcp, udp, icmp or any)
+        # 'any' applies to all protocols, or to both tcp and udp when ports are specified
+        # 'icmp' only matches ping requests (echo-request), ICMP packets related to existing connections are always accepted
         protocol: tcp
 
         # The port(s) (use 'any' to apply to all ports) (no need to specify the ports for icmp)
@@ -159,11 +164,26 @@ eth0:
           - malicious_ip3
           - 1.2.3.4
 
-    # The output rules
-    # output:
-    # TODO: for now output rules are not implemented, all output traffic is allowed
-    
+    # The output rules (same syntax as the input rules, but 'allow' and 'drop' are the destinations
+    # of the outbound packets, and the interface is the outbound interface)
+    output:
+      # Allow DNS queries to the trusted resolvers only
+      dns:
+        protocol: udp
+        ports:
+          - 53
+        allow:
+          - 9.9.9.9
+          - 1.1.1.1
+
+      # Block all outbound traffic to a malicious network
+      malicious:
+        protocol: any
+        drop:
+          - 10.66.0.0/16
 ```
+
+By default, `output_default_policy` is `accept`: output rules are only useful to `drop` some destinations. Set `output_default_policy: drop` in the configuration file to only allow the outbound traffic explicitly defined in the output rules (established connections, loopback and IPv6 neighbor discovery are always allowed).
 
 Advanced ruleset example (forward)
 ----------------------------------
@@ -217,17 +237,67 @@ eth0:
 
 Forward rule fields:
 
-- `action` (optional): `accept` (default) or `drop`.
+- `action` (optional): `accept` (default), `drop` or `reject`.
 - `log` (optional): `true`/`false` (default `false`).
 - `log_prefix` (optional): custom nftables log prefix.
 - `rules` (required): list of match objects.
-- Match object fields (all optional): `from_interface`, `to_interface`, `from_source`, `to_destination`, `protocol`, `from_port`, `to_port`.
+- Match object fields: `from_interface`, `to_interface`, `from_source`, `to_destination`, `protocol`, `from_port`, `to_port`. At least one of `from_interface` or `to_interface` is required, the other fields are optional.
 
 Notes:
 
 - `from_source` and `to_destination` can be either a source alias from `/opt/ezfirewall/sources/*.yml` or a direct IP/CIDR value.
-- `protocol` defaults to `any`.
-- `from_port` and `to_port` are only applied when `protocol` is `tcp` or `udp`.
+- `protocol` can be `tcp`, `udp`, `icmp` or `any` (default). `any` means all protocols, or both `tcp` and `udp` when ports are specified.
+- `from_port` and `to_port` can be a port or a list of ports, they can only be used when `protocol` is `tcp`, `udp` or `any`.
+- Forwarded traffic that does not match any rule is handled by the `forward_default_policy` of the configuration file (`drop` by default). No final drop rule is added to the FORWARD chain, so that rules appended by other services (e.g. docker) keep working.
+
+Advanced ruleset example (NAT)
+------------------------------
+
+This is an example of a NAT ruleset. It redirects the HTTP port of the public address to a server of the LAN (DNAT) and masquerades the traffic of the LAN going to the WAN (SNAT).
+
+```shell
+vim /opt/ezfirewall/rules/nat.yml
+```
+
+```yaml
+---
+eth0:
+  ipv4:
+    nat:
+      prerouting:
+        web_server:
+          in_interface: eth0
+          destination: office_public
+          protocol: tcp
+          to_port: 80
+          to_destination: 192.168.0.10
+
+      postrouting:
+        lan_to_wan:
+          out_interface: eth0
+          source: home_lan
+          masquerade: true
+
+        # Alternatively, translate to a fixed address (SNAT)
+        # lan_to_wan:
+        #   out_interface: eth0
+        #   source: home_lan
+        #   to_source: 5.6.7.8
+```
+
+NAT rule fields:
+
+- `prerouting` (DNAT) rules: `in_interface`, `destination`, `protocol`, `to_port` (all optional) and `to_destination` (required).
+- `postrouting` (SNAT) rules: `out_interface`, `source`, `protocol` (all optional) and either `to_source` or `masquerade: true` (required).
+- `protocol` can be `tcp`, `udp` or `any` (default). `any` means all protocols, or both `tcp` and `udp` when `to_port` is specified.
+- `destination`, `to_destination`, `source` and `to_source` can be either a source alias from `/opt/ezfirewall/sources/*.yml` or a direct IP/CIDR value.
+
+Rules validation and merging
+----------------------------
+
+All the rules files are checked before applying anything: an unknown parameter, an invalid protocol or port, or a key defined twice in the same file is reported as an error, so that a typo can never lead to a rule silently ignored or matching more traffic than expected.
+
+Rules with the same name defined in several files (e.g. a `ssh` rule in `eth0.yml` and in `admins.yml`) are merged (sources and ports are combined), as long as they use the same protocol. Otherwise an error is displayed.
 
 Apply the rules
 ---------------
@@ -241,16 +311,43 @@ ezfirewall
 Check the rules
 ---------------
 
-Use nftables native command to list the current rules. The output is horrible but I haven't found the time to create a better command yet.
+Print the rules currently in place as tables (one table per nftables table, the content of the drop sets and the source names are displayed):
+
+```shell
+ezfirewall --print
+```
+
+The raw ruleset can still be listed with the nftables native command:
 
 ```shell
 nft list ruleset
 ```
 
-Change default input/output policy
-----------------------------------
+Change default policies
+-----------------------
 
-Edit the `/opt/ezfirewall/config.yml` file and change the `input_default_policy` / `output_default_policy` values to `accept` or `drop`
+Edit the `/opt/ezfirewall/config.yml` file and change the `input_default_policy` / `output_default_policy` / `forward_default_policy` values to `accept` or `drop`.
+
+With a default policy set to `accept`, the traffic that does not match any rule is accepted (and not logged). Default values are `drop` for input and forward, `accept` for output.
+
+If a parameter is missing from the configuration file, it is added with its default value.
+
+Backups and restore
+-------------------
+
+Before applying the rules, the current ruleset and `/etc/nftables.conf` are saved to `/opt/ezfirewall/backups` (backups are kept 15 days). If something fails after the rules have been applied, the backup is automatically restored.
+
+To manually restore a backup:
+
+```shell
+# Restore the most recent backup
+ezfirewall --restore
+
+# Restore a specific backup
+ezfirewall --restore 2026-01-01_10-00-00_ruleset.json
+```
+
+Rules created by iptables-nft (e.g. by docker) using xtables extensions cannot be restored by nftables: restart the services that created them (the services listed in `restart_services` are restarted automatically after a restore).
 
 Log dropped packets
 -------------------
@@ -258,6 +355,8 @@ Log dropped packets
 - rsyslog is required
 
 Edit the `/opt/ezfirewall/config.yml` file and change the `log_dropped_traffic` value to `True` to log the dropped packets.
+
+Only the inbound and outbound packets dropped by the default input/output policies are logged. Forwarded packets dropped by the default forward policy are not logged (use `log: true` on a forward rule to log a specific traffic).
 
 Raw logs are stored in `/var/log/nftables.log` and also in a dedicated database under `/var/lib/ezfirewall/ezfirewall.db` (database is used by the web interface).
 
@@ -274,10 +373,12 @@ Example:
 ipv4:
   input_default_policy: drop
   output_default_policy: accept
+  forward_default_policy: drop
   log_dropped_traffic: True
 ipv6:
   input_default_policy: drop
   output_default_policy: accept
+  forward_default_policy: drop
   log_dropped_traffic: True
 log_retention_days: 30
 restart_services: 

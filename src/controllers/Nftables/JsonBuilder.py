@@ -1,34 +1,39 @@
 # coding: utf-8
 
 # Import libraries
+import re
 import json
 import ipaddress
 from colorama import Fore, Style
-from nftables import Nftables
 
 class JsonBuilder:
     def __init__(self):
-        self.nft = Nftables()
-        self.nft.set_json_output(True)
-        self.nft.set_handle_output(True)
-        
         # Initialize ruleset structure
         self.ruleset = {
             "nftables": []
         }
         
+        # Drop sets to create, per family: list of {'chain': 'INPUT'|'OUTPUT', 'interface': ..., 'rule_name': ...}
         self.sets = {
-            'ipv4': {
-                'drop_sets': [],  # list of {'interface': ..., 'rule_name': ...}
-                'has_any': False,
-                'any_rules': []   # rule names for 'any' interface
-            },
-            'ipv6': {
-                'drop_sets': [],
-                'has_any': False,
-                'any_rules': []
-            }
+            'ipv4': [],
+            'ipv6': []
         }
+
+        # Final INPUT rules (log and/or drop), added at the end of the ruleset
+        self._final_rules = []
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Get the name of a drop set
+    #
+    #-----------------------------------------------------------------------------------------------
+    def drop_set_name(self, interface, rule_name, chain='INPUT'):
+        """Return the name of the drop set of a chain+interface+rule_name"""
+        direction = 'in' if chain == 'INPUT' else 'out'
+
+        # Characters that are not allowed in a set name (e.g. interface wildcard 'eth*') are replaced,
+        # otherwise the ruleset saved in /etc/nftables.conf could not be loaded
+        return re.sub(r'[^A-Za-z0-9_.-]', '_', f"ez_{direction}_{interface}_{rule_name}_drop")
 
     #-----------------------------------------------------------------------------------------------
     #
@@ -68,53 +73,18 @@ class JsonBuilder:
     #
     #-----------------------------------------------------------------------------------------------
     def create_sets(self):
-        """Create sets for managing DROP IP addresses per service"""
-        # Create DROP sets per interface+rule_name for IPv4
-        for drop_set in self.sets['ipv4']['drop_sets']:
-            self.ruleset["nftables"].append({
-                "set": {
-                    "family": "ip",
-                    "table": "filter",
-                    "name": f"ez_{drop_set['interface']}_{drop_set['rule_name']}_drop",
-                    "type": "ipv4_addr",
-                    "flags": ["interval"]
-                }
-            })
-
-        # Create DROP sets per interface+rule_name for IPv6
-        for drop_set in self.sets['ipv6']['drop_sets']:
-            self.ruleset["nftables"].append({
-                "set": {
-                    "family": "ip6",
-                    "table": "filter",
-                    "name": f"ez_{drop_set['interface']}_{drop_set['rule_name']}_drop",
-                    "type": "ipv6_addr",
-                    "flags": ["interval"]
-                }
-            })
-
-        # Create global DROP sets for 'any' interface if needed
-        for rule_name in self.sets['ipv4']['any_rules']:
-            self.ruleset["nftables"].append({
-                "set": {
-                    "family": "ip",
-                    "table": "filter",
-                    "name": f"ez_any_{rule_name}_drop",
-                    "type": "ipv4_addr",
-                    "flags": ["interval"]
-                }
-            })
-
-        for rule_name in self.sets['ipv6']['any_rules']:
-            self.ruleset["nftables"].append({
-                "set": {
-                    "family": "ip6",
-                    "table": "filter",
-                    "name": f"ez_any_{rule_name}_drop",
-                    "type": "ipv6_addr",
-                    "flags": ["interval"]
-                }
-            })
+        """Create sets for managing DROP IP addresses per chain, interface and rule"""
+        for ip_version, family, set_type in [('ipv4', 'ip', 'ipv4_addr'), ('ipv6', 'ip6', 'ipv6_addr')]:
+            for drop_set in self.sets[ip_version]:
+                self.ruleset["nftables"].append({
+                    "set": {
+                        "family": family,
+                        "table": "filter",
+                        "name": self.drop_set_name(drop_set['interface'], drop_set['rule_name'], drop_set['chain']),
+                        "type": set_type,
+                        "flags": ["interval"]
+                    }
+                })
 
     #-----------------------------------------------------------------------------------------------
     #
@@ -127,12 +97,12 @@ class JsonBuilder:
         # IPv4 chains
         self._create_input_chain("ip", config['ipv4']['input_default_policy'])
         self._create_forward_chain("ip", config['ipv4']['forward_default_policy'])
-        self._create_output_chain("ip")
+        self._create_output_chain("ip", config['ipv4']['output_default_policy'])
         
         # IPv6 chains
         self._create_input_chain("ip6", config['ipv6']['input_default_policy'])
         self._create_forward_chain("ip6", config['ipv6']['forward_default_policy'])
-        self._create_output_chain("ip6")
+        self._create_output_chain("ip6", config['ipv6']['output_default_policy'])
         
     def _create_input_chain(self, family, policy):
         """Create INPUT chain for specified family"""
@@ -162,7 +132,7 @@ class JsonBuilder:
             }
         })
         
-    def _create_output_chain(self, family):
+    def _create_output_chain(self, family, policy):
         """Create OUTPUT chain for specified family"""
         self.ruleset["nftables"].append({
             "chain": {
@@ -172,7 +142,7 @@ class JsonBuilder:
                 "type": "filter",
                 "hook": "output",
                 "prio": 0,
-                "policy": "accept"
+                "policy": policy
             }
         })
 
@@ -186,157 +156,136 @@ class JsonBuilder:
         
         families = ["ip", "ip6"]
         for family in families:
-            # Connection tracking rules - accept established and related
-            self.ruleset["nftables"].append({
-                "rule": {
-                    "family": family,
-                    "table": "filter",
-                    "chain": "INPUT",
-                    "expr": [
+            # INPUT and OUTPUT chains share the same base rules: accept established and related connections,
+            # drop invalid packets and accept loopback traffic
+            for chain, interface_key in [("INPUT", "iifname"), ("OUTPUT", "oifname")]:
+                # Connection tracking rules - accept established and related
+                self._add_base_rule(family, chain, [
+                    {
+                        "match": {
+                            "op": "==",
+                            "left": {"ct": {"key": "state"}},
+                            "right": {"set": ["established", "related"]}
+                        }
+                    },
+                    {"accept": None}
+                ])
+
+                # Drop invalid packets
+                self._add_base_rule(family, chain, [
+                    {
+                        "match": {
+                            "op": "==",
+                            "left": {"ct": {"key": "state"}},
+                            "right": "invalid"
+                        }
+                    },
+                    {"drop": None}
+                ])
+
+                # Allow loopback
+                self._add_base_rule(family, chain, [
+                    {
+                        "match": {
+                            "op": "==",
+                            "left": {"meta": {"key": interface_key}},
+                            "right": "lo"
+                        }
+                    },
+                    {"accept": None}
+                ])
+
+                # Allow IPv6 neighbor discovery: these packets are not tracked by conntrack (ct state 'untracked'),
+                # so they would be dropped by the default policy and IPv6 connectivity would be broken
+                if family == "ip6":
+                    self._add_base_rule(family, chain, [
                         {
                             "match": {
                                 "op": "==",
-                                "left": {"ct": {"key": "state"}},
-                                "right": {"set": ["established", "related"]}
+                                "left": {"payload": {"protocol": "icmpv6", "field": "type"}},
+                                "right": {"set": ["nd-router-solicit", "nd-router-advert", "nd-neighbor-solicit", "nd-neighbor-advert"]}
                             }
                         },
                         {"accept": None}
-                    ]
-                }
-            })
-
-            # Drop invalid packets
-            self.ruleset["nftables"].append({
-                "rule": {
-                    "family": family,
-                    "table": "filter",
-                    "chain": "INPUT",
-                    "expr": [
-                        {
-                            "match": {
-                                "op": "==",
-                                "left": {"ct": {"key": "state"}},
-                                "right": "invalid"
-                            }
-                        },
-                        {"drop": None}
-                    ]
-                }
-            })
-
-            # Allow loopback
-            self.ruleset["nftables"].append({
-                "rule": {
-                    "family": family,
-                    "table": "filter",
-                    "chain": "INPUT",
-                    "expr": [
-                        {
-                            "match": {
-                                "op": "==",
-                                "left": {"meta": {"key": "iifname"}},
-                                "right": "lo"
-                            }
-                        },
-                        {"accept": None}
-                    ]
-                }
-            })
+                    ])
 
             # Connection tracking rules for the FORWARD chain - accept established
             # and related traffic so that the return packets of forwarded
             # connections are not dropped by the default 'drop' policy
-            self.ruleset["nftables"].append({
-                "rule": {
-                    "family": family,
-                    "table": "filter",
-                    "chain": "FORWARD",
-                    "expr": [
-                        {
-                            "match": {
-                                "op": "==",
-                                "left": {"ct": {"key": "state"}},
-                                "right": {"set": ["established", "related"]}
-                            }
-                        },
-                        {"accept": None}
-                    ]
-                }
-            })
+            self._add_base_rule(family, "FORWARD", [
+                {
+                    "match": {
+                        "op": "==",
+                        "left": {"ct": {"key": "state"}},
+                        "right": {"set": ["established", "related"]}
+                    }
+                },
+                {"accept": None}
+            ])
 
             # Drop invalid packets in the FORWARD chain
-            self.ruleset["nftables"].append({
-                "rule": {
-                    "family": family,
-                    "table": "filter",
-                    "chain": "FORWARD",
-                    "expr": [
-                        {
-                            "match": {
-                                "op": "==",
-                                "left": {"ct": {"key": "state"}},
-                                "right": "invalid"
-                            }
-                        },
-                        {"drop": None}
-                    ]
-                }
-            })
-
-        # Add final rules for logging and dropping (after all custom rules are added)
-        for family in families:    
-            # Add logging rule if enabled
-            if ((family == "ip" and config['ipv4']['log_dropped_traffic']) or 
-                (family == "ip6" and config['ipv6']['log_dropped_traffic'])):
-                # Generate correct log prefix based on IP version
-                ip_version = "IPv4" if family == "ip" else "IPv6"
-                log_prefix = f"[nftables-drop] {ip_version} inbound denied: "
-                # Store this for later - will be added at the end
-                self._logging_rules = self._logging_rules if hasattr(self, '_logging_rules') else []
-                self._logging_rules.append({
-                    "rule": {
-                        "family": family,
-                        "table": "filter", 
-                        "chain": "INPUT",
-                        "expr": [
-                            {
-                                "match": {
-                                    "op": "==",
-                                    "left": {"ct": {"key": "state"}},
-                                    "right": "new"
-                                }
-                            },
-                            {
-                                "log": {
-                                    "prefix": log_prefix
-                                }
-                            },
-                            {"counter": None},
-                            {"drop": None}
-                        ]
+            self._add_base_rule(family, "FORWARD", [
+                {
+                    "match": {
+                        "op": "==",
+                        "left": {"ct": {"key": "state"}},
+                        "right": "invalid"
                     }
-                })
-            else:
+                },
+                {"drop": None}
+            ])
+
+        # Add final INPUT and OUTPUT rules for logging and dropping (after all custom rules are added)
+        # No final rule is added to the FORWARD chain: its default policy applies, so that rules appended
+        # to the chain by other services (e.g. docker) keep working
+        for family in families:
+            ip_version = "ipv4" if family == "ip" else "ipv6"
+
+            for chain, policy_key, direction in [("INPUT", "input_default_policy", "inbound"), ("OUTPUT", "output_default_policy", "outbound")]:
+                # If the default policy is 'accept', new connections are not dropped (and so not logged)
+                if config[ip_version][policy_key] != 'drop':
+                    continue
+
                 # Drop new connections by default
+                expr = [
+                    {
+                        "match": {
+                            "op": "==",
+                            "left": {"ct": {"key": "state"}},
+                            "right": "new"
+                        }
+                    }
+                ]
+
+                # Add logging if enabled
+                if config[ip_version]['log_dropped_traffic']:
+                    # Generate correct log prefix based on IP version and direction
+                    log_prefix = f"[nftables-drop] IPv{ip_version[-1]} {direction} denied: "
+                    expr.append({"log": {"prefix": log_prefix}})
+                    expr.append({"counter": None})
+
+                expr.append({"drop": None})
+
                 # Store this for later - will be added at the end
-                self._final_drop_rules = self._final_drop_rules if hasattr(self, '_final_drop_rules') else []
-                self._final_drop_rules.append({
+                self._final_rules.append({
                     "rule": {
                         "family": family,
                         "table": "filter",
-                        "chain": "INPUT",
-                        "expr": [
-                            {
-                                "match": {
-                                    "op": "==",
-                                    "left": {"ct": {"key": "state"}},
-                                    "right": "new"
-                                }
-                            },
-                            {"drop": None}
-                        ]
+                        "chain": chain,
+                        "expr": expr
                     }
                 })
+
+    def _add_base_rule(self, family, chain, expr):
+        """Add a rule to a chain of the filter table"""
+        self.ruleset["nftables"].append({
+            "rule": {
+                "family": family,
+                "table": "filter",
+                "chain": chain,
+                "expr": expr
+            }
+        })
 
     #-----------------------------------------------------------------------------------------------
     #
@@ -346,12 +295,12 @@ class JsonBuilder:
     def format_ip_address(self, ip_address):
         """Format IP address for nftables JSON, handling CIDR notation"""
         if '/' in ip_address:
-            # CIDR notation - split address and prefix
-            addr, prefix_len = ip_address.split('/')
+            # CIDR notation - split address and prefix (host bits are cleared, e.g. 10.0.0.1/24 => 10.0.0.0/24)
+            network = ipaddress.ip_network(ip_address, strict=False)
             return {
                 "prefix": {
-                    "addr": addr,
-                    "len": int(prefix_len)
+                    "addr": str(network.network_address),
+                    "len": network.prefixlen
                 }
             }
         else:
@@ -426,8 +375,8 @@ class JsonBuilder:
     #   Add IP addresses to drop sets only
     #
     #-----------------------------------------------------------------------------------------------
-    def add_to_drop_set(self, family, interface, rule_name, ip_addresses):
-        """Add IP addresses to the drop set for a specific interface and rule"""
+    def add_to_drop_set(self, family, interface, rule_name, ip_addresses, chain='INPUT'):
+        """Add IP addresses to the drop set for a specific chain, interface and rule"""
         if not ip_addresses:
             return
             
@@ -437,8 +386,8 @@ class JsonBuilder:
             if ip != "any":
                 formatted_ips.append(self.format_ip_address(ip))
         
-        set_name = f"ez_{interface}_{rule_name}_drop"
-        
+        set_name = self.drop_set_name(interface, rule_name, chain)
+
         if formatted_ips:
             self.ruleset["nftables"].append({
                 "element": {
@@ -451,62 +400,55 @@ class JsonBuilder:
     
     #-----------------------------------------------------------------------------------------------
     #
-    #   Generate allow rules
+    #   Helper: Build port value (single port or set of ports)
     #
     #-----------------------------------------------------------------------------------------------
-    def add_allow_rule(self, family, interface, source_ip, protocol, ports, state="new,related,established"):
-        """Add an allow rule to the ruleset - individual rules per IP for granular control"""
-        rule_expr = []
-        
-        # Add interface match if not 'any'
-        if interface != 'any':
-            rule_expr.append({
-                "match": {
-                    "op": "==",
-                    "left": {"meta": {"key": "iifname"}},
-                    "right": interface
-                }
-            })
-        
-        # Add source IP match (skip if source is 'any')
-        if source_ip != "any":
-            rule_expr.append({
-                "match": {
-                    "op": "==",
-                    "left": {"payload": {"protocol": family, "field": "saddr"}},
-                    "right": self.format_ip_address(source_ip)
-                }
-            })
-        
-        # Add protocol and port matches
-        if protocol == 'any' and 'any' not in ports and ports:
-            # TCP/UDP with specific ports
-            rule_expr.append({
-                "match": {
-                    "op": "==",
-                    "left": {"meta": {"key": "l4proto"}},
-                    "right": {"set": ["tcp", "udp"]}
-                }
-            })
-            rule_expr.append({
-                "match": {
-                    "op": "==",
-                    "left": {"payload": {"protocol": "th", "field": "dport"}},
-                    "right": {"set": [int(p) for p in ports]}
-                }
-            })
+    def _port_value(self, ports):
+        """Return the JSON value matching a port or a list of ports"""
+        if not isinstance(ports, list):
+            return int(ports)
+        if len(ports) == 1:
+            return int(ports[0])
+        return {"set": [int(p) for p in ports]}
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Helper: Build protocol and destination port matches of an input rule
+    #
+    #-----------------------------------------------------------------------------------------------
+    def _input_protocol_matches(self, family, protocol, ports):
+        """Return the protocol/port matches of an input rule"""
+        expr = []
+        specific_ports = bool(ports) and 'any' not in ports
+
+        if protocol == 'any':
+            # 'any' means all protocols, or tcp and udp when ports are specified (ports only exist for tcp/udp)
+            if specific_ports:
+                expr.append({
+                    "match": {
+                        "op": "==",
+                        "left": {"meta": {"key": "l4proto"}},
+                        "right": {"set": ["tcp", "udp"]}
+                    }
+                })
+                expr.append({
+                    "match": {
+                        "op": "==",
+                        "left": {"payload": {"protocol": "th", "field": "dport"}},
+                        "right": {"set": [int(p) for p in ports]}
+                    }
+                })
         elif protocol in ['tcp', 'udp']:
-            if ports and 'any' not in ports:
-                port_value = [int(p) for p in ports] if len(ports) > 1 else int(ports[0])
-                rule_expr.append({
+            if specific_ports:
+                expr.append({
                     "match": {
                         "op": "==",
                         "left": {"payload": {"protocol": protocol, "field": "dport"}},
-                        "right": {"set": port_value} if len(ports) > 1 else port_value
+                        "right": self._port_value(ports)
                     }
                 })
             else:
-                rule_expr.append({
+                expr.append({
                     "match": {
                         "op": "==",
                         "left": {"meta": {"key": "l4proto"}},
@@ -516,13 +458,72 @@ class JsonBuilder:
         elif protocol == 'icmp':
             # Handle both ICMPv4 and ICMPv6
             icmp_protocol = "icmp" if family == "ip" else "icmpv6"
-            rule_expr.append({
+            expr.append({
                 "match": {
                     "op": "==",
                     "left": {"payload": {"protocol": icmp_protocol, "field": "type"}},
                     "right": "echo-request"
                 }
             })
+        else:
+            # Should never happen as the rules are validated before, but never generate a rule that
+            # would match more traffic than expected
+            raise Exception('unsupported protocol "' + str(protocol) + '"')
+
+        return expr
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Build protocol and port matches of a forward or NAT rule
+    #
+    #-----------------------------------------------------------------------------------------------
+    def protocol_port_matches(self, family, protocol, sport=None, dport=None):
+        """Return the protocol/port matches of a forward or NAT rule"""
+        expr = []
+
+        # Protocol ('any' with ports means tcp and udp)
+        if protocol == 'icmp':
+            l4proto = "icmp" if family == "ip" else "icmpv6"
+        elif protocol == 'any':
+            l4proto = {"set": ["tcp", "udp"]} if (sport or dport) else None
+        else:
+            l4proto = protocol
+
+        if l4proto:
+            expr.append({
+                "match": {
+                    "op": "==",
+                    "left": {"meta": {"key": "l4proto"}},
+                    "right": l4proto
+                }
+            })
+
+        # Source and destination ports ('th' matches both tcp and udp)
+        port_protocol = protocol if protocol in ['tcp', 'udp'] else 'th'
+        for field, ports in [('sport', sport), ('dport', dport)]:
+            if ports:
+                expr.append({
+                    "match": {
+                        "op": "==",
+                        "left": {"payload": {"protocol": port_protocol, "field": field}},
+                        "right": self._port_value(ports)
+                    }
+                })
+
+        return expr
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Generate allow rules
+    #
+    #-----------------------------------------------------------------------------------------------
+    def add_allow_rule(self, family, interface, ip, protocol, ports, state="new,related,established", chain='INPUT'):
+        """Add an allow rule to the ruleset - individual rules per IP for granular control
+        In the INPUT chain, ip is the source address, in the OUTPUT chain it is the destination address"""
+        rule_expr = self._chain_matches(family, chain, interface, ip)
+        
+        # Add protocol and port matches
+        rule_expr.extend(self._input_protocol_matches(family, protocol, ports))
         
         # Add connection state match if specified
         if protocol != 'icmp' and state:
@@ -543,7 +544,7 @@ class JsonBuilder:
             "rule": {
                 "family": family,
                 "table": "filter",
-                "chain": "INPUT",
+                "chain": chain,
                 "expr": rule_expr
             }
         })
@@ -553,76 +554,12 @@ class JsonBuilder:
     #   Generate drop rules
     #
     #-----------------------------------------------------------------------------------------------
-    def add_drop_rule(self, family, interface, rule_name, protocol, ports, use_sets=True):
-        """Add a drop rule to the ruleset using sets for IP management"""
-        rule_expr = []
-        
-        # Add interface match if not 'any'
-        if interface != 'any':
-            rule_expr.append({
-                "match": {
-                    "op": "==",
-                    "left": {"meta": {"key": "iifname"}},
-                    "right": interface
-                }
-            })
-        
-        # Add source IP match using the appropriate drop set
-        if use_sets:
-            set_name = f"ez_{interface}_{rule_name}_drop"
-            rule_expr.append({
-                "match": {
-                    "op": "==",
-                    "left": {"payload": {"protocol": family, "field": "saddr"}},
-                    "right": f"@{set_name}"
-                }
-            })
+    def add_drop_rule(self, family, interface, rule_name, protocol, ports, chain='INPUT'):
+        """Add a drop rule to the ruleset using the drop set of the chain, interface and rule"""
+        rule_expr = self._chain_matches(family, chain, interface, '@' + self.drop_set_name(interface, rule_name, chain))
         
         # Add protocol and port matches
-        if protocol == 'any' and 'any' not in ports and ports:
-            # TCP/UDP with specific ports
-            rule_expr.append({
-                "match": {
-                    "op": "==",
-                    "left": {"meta": {"key": "l4proto"}},
-                    "right": {"set": ["tcp", "udp"]}
-                }
-            })
-            rule_expr.append({
-                "match": {
-                    "op": "==",
-                    "left": {"payload": {"protocol": "th", "field": "dport"}},
-                    "right": {"set": [int(p) for p in ports]}
-                }
-            })
-        elif protocol in ['tcp', 'udp']:
-            if ports and 'any' not in ports:
-                port_value = [int(p) for p in ports] if len(ports) > 1 else int(ports[0])
-                rule_expr.append({
-                    "match": {
-                        "op": "==",
-                        "left": {"payload": {"protocol": protocol, "field": "dport"}},
-                        "right": {"set": port_value} if len(ports) > 1 else port_value
-                    }
-                })
-            else:
-                rule_expr.append({
-                    "match": {
-                        "op": "==",
-                        "left": {"meta": {"key": "l4proto"}},
-                        "right": protocol
-                    }
-                })
-        elif protocol == 'icmp':
-            # Handle both ICMPv4 and ICMPv6
-            icmp_protocol = "icmp" if family == "ip" else "icmpv6"
-            rule_expr.append({
-                "match": {
-                    "op": "==",
-                    "left": {"payload": {"protocol": icmp_protocol, "field": "type"}},
-                    "right": "echo-request"
-                }
-            })
+        rule_expr.extend(self._input_protocol_matches(family, protocol, ports))
         
         # Add drop action
         rule_expr.append({"drop": None})
@@ -632,10 +569,48 @@ class JsonBuilder:
             "rule": {
                 "family": family,
                 "table": "filter",
-                "chain": "INPUT",
+                "chain": chain,
                 "expr": rule_expr
             }
         })
+
+    #-----------------------------------------------------------------------------------------------
+    #
+    #   Helper: Build the interface and address matches of an input/output rule
+    #   INPUT rules match the input interface and the source address,
+    #   OUTPUT rules match the output interface and the destination address
+    #
+    #-----------------------------------------------------------------------------------------------
+    def _chain_matches(self, family, chain, interface, ip):
+        """Return the interface and address matches of an INPUT or OUTPUT rule (ip can be a set reference)"""
+        if chain == 'OUTPUT':
+            interface_key, address_field = 'oifname', 'daddr'
+        else:
+            interface_key, address_field = 'iifname', 'saddr'
+
+        expr = []
+
+        # Add interface match if not 'any'
+        if interface != 'any':
+            expr.append({
+                "match": {
+                    "op": "==",
+                    "left": {"meta": {"key": interface_key}},
+                    "right": interface
+                }
+            })
+
+        # Add address match (skip if 'any')
+        if ip != 'any':
+            expr.append({
+                "match": {
+                    "op": "==",
+                    "left": {"payload": {"protocol": family, "field": address_field}},
+                    "right": ip if ip.startswith('@') else self.format_ip_address(ip)
+                }
+            })
+
+        return expr
 
     #-----------------------------------------------------------------------------------------------
     #
@@ -647,11 +622,11 @@ class JsonBuilder:
         
         rule_expr = expressions.copy()
         
-        # Add log expression if log_prefix is provided
+        # Add log expression if log_prefix is provided (a trailing space separates it from the logged packet info)
         if log_prefix:
             rule_expr.append({
                 "log": {
-                    "prefix": log_prefix
+                    "prefix": log_prefix if log_prefix.endswith(' ') else log_prefix + ' '
                 }
             })
             
@@ -778,13 +753,7 @@ class JsonBuilder:
     #-----------------------------------------------------------------------------------------------
     def finalize_ruleset(self):
         """Add final logging and drop rules"""
-        # Add logging rules if they exist
-        if hasattr(self, '_logging_rules'):
-            self.ruleset["nftables"].extend(self._logging_rules)
-            
-        # Add final drop rules if they exist
-        if hasattr(self, '_final_drop_rules'):
-            self.ruleset["nftables"].extend(self._final_drop_rules)
+        self.ruleset["nftables"].extend(self._final_rules)
 
     #-----------------------------------------------------------------------------------------------
     #
@@ -801,21 +770,17 @@ class JsonBuilder:
     #
     #-----------------------------------------------------------------------------------------------
     def prepare_sets(self, content):
-        """Prepare sets for nftables configuration - one set per interface+rule_name"""
+        """Prepare sets for nftables configuration - one set per chain+interface+rule_name"""
         for interface in content:
-            for ip_version_key, family_key in [("ipv4", "ipv4"), ("ipv6", "ipv6")]:
-                if ip_version_key not in content[interface]:
-                    continue
-                if 'input' not in content[interface][ip_version_key]:
-                    continue
-                for rule_name in content[interface][ip_version_key]['input']:
-                    if 'drop' not in content[interface][ip_version_key]['input'][rule_name]:
-                        continue
-                    if interface == 'any':
-                        self.sets[family_key]['has_any'] = True
-                        if rule_name not in self.sets[family_key]['any_rules']:
-                            self.sets[family_key]['any_rules'].append(rule_name)
-                    else:
-                        entry = {'interface': interface, 'rule_name': rule_name}
-                        if entry not in self.sets[family_key]['drop_sets']:
-                            self.sets[family_key]['drop_sets'].append(entry)
+            for ip_version in ['ipv4', 'ipv6']:
+                for section, chain in [('input', 'INPUT'), ('output', 'OUTPUT')]:
+                    rules = content[interface].get(ip_version, {}).get(section, {})
+
+                    for rule_name, rule in rules.items():
+                        if not rule.get('drop'):
+                            continue
+
+                        entry = {'chain': chain, 'interface': interface, 'rule_name': rule_name}
+
+                        if entry not in self.sets[ip_version]:
+                            self.sets[ip_version].append(entry)

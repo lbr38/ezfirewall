@@ -3,7 +3,6 @@
 # Import libraries
 from pathlib import Path
 from copy import deepcopy
-import yaml
 from colorama import Fore, Style
 
 # Import classes
@@ -75,8 +74,8 @@ class Config:
             changed = True
 
         for key, default_value in self.DEFAULTS.items():
-            # Top level parameter is entirely missing (e.g. 'ipv4', 'log_retention_days', ...)
-            if key not in config or (isinstance(default_value, dict) and not isinstance(config[key], dict)):
+            # Top level parameter is entirely missing or empty (e.g. 'ipv4', 'log_retention_days', ...)
+            if key not in config or config[key] is None or (isinstance(default_value, dict) and not isinstance(config[key], dict)):
                 config[key] = deepcopy(default_value)
                 changed = True
                 print(Fore.YELLOW + ' ▪ Missing "' + key + '" parameter in configuration file, added with default value' + Style.RESET_ALL)
@@ -85,7 +84,8 @@ class Config:
             # For sections (ipv4, ipv6), check each sub parameter individually
             if isinstance(default_value, dict):
                 for sub_key, sub_default_value in default_value.items():
-                    if sub_key not in config[key]:
+                    # Sub parameter is missing or has no value (e.g. 'forward_default_policy:')
+                    if sub_key not in config[key] or config[key][sub_key] is None:
                         config[key][sub_key] = deepcopy(sub_default_value)
                         changed = True
                         print(Fore.YELLOW + ' ▪ Missing "' + key + '.' + sub_key + '" parameter in configuration file, added with default value "' + str(sub_default_value) + '"' + Style.RESET_ALL)
@@ -110,8 +110,11 @@ class Config:
             if not isinstance(config[ip_version], dict):
                 raise Exception('"' + ip_version + '" section must be a mapping')
 
-            # Validate default policies
+            # Validate default policies (case insensitive)
             for policy_key in ['input_default_policy', 'output_default_policy', 'forward_default_policy']:
+                if isinstance(config[ip_version][policy_key], str):
+                    config[ip_version][policy_key] = config[ip_version][policy_key].lower()
+
                 if config[ip_version][policy_key] not in valid_policies:
                     raise Exception('"' + ip_version + '.' + policy_key + '" must be one of: ' + ', '.join(valid_policies))
 
@@ -127,6 +130,10 @@ class Config:
         if not isinstance(config['restart_services'], list):
             raise Exception('"restart_services" must be a list')
 
+        for service in config['restart_services']:
+            if not isinstance(service, str) or not service:
+                raise Exception('"restart_services" must only contain service names')
+
 
     #-----------------------------------------------------------------------------------------------
     #
@@ -136,8 +143,7 @@ class Config:
     def get(self):
         try:
             # Open configuration file
-            with open(self.config, 'r') as file:
-                config = yaml.safe_load(file)
+            config = self.yamlController.load(self.config)
         except Exception as e:
             raise Exception('Failed to open configuration file: ' + str(e))
 

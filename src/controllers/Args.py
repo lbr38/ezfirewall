@@ -21,7 +21,9 @@ class Args:
         print('  --debug             : Enable debug mode')
         print('  --dry-run, -d       : Enable dry run mode')
         print('  --no-persist        : Do not save rules to /etc/nftables.conf')
+        print('  --print, -p         : Print the rules currently in place')
         print('  --list-sources, -ls : List current sources')
+        print('  --restore [file]    : Restore a backup of the ruleset (the most recent one if no file is specified)')
         #print('  --add-source, -as   : Add a source')
 
 
@@ -35,6 +37,9 @@ class Args:
         self.quiet = False
         self.debug = False
         self.no_persist = False
+        self.print_rules = False
+        # None if no restore is requested, '' to restore the most recent backup, or a backup file name
+        self.restore = None
 
         try:
             # Parse arguments
@@ -51,11 +56,15 @@ class Args:
             parser.add_argument("--dry-run", "-d", action="store_true", default="null")
             # No persist
             parser.add_argument("--no-persist", action="store_true", default="null")
+            # Print current rules
+            parser.add_argument("--print", "-p", action="store_true", default="null")
             # Add source
             # TODO
             # parser.add_argument("--add-source", "-as", action="store_true", default="null")
             # List sources
             parser.add_argument("--list-sources", "-ls", action="store", nargs='?', default="null")
+            # Restore a backup
+            parser.add_argument("--restore", action="store", nargs='?', default="null")
 
             # Parse arguments
             args, remaining_args = parser.parse_known_args()
@@ -92,6 +101,14 @@ class Args:
             if args.no_persist != "null":
                 self.no_persist = True
                 print(Fore.YELLOW + ' ▪ Persistence to /etc/nftables.conf disabled' + Style.RESET_ALL)
+
+            # If --print param has been set
+            if args.print != "null":
+                self.print_rules = True
+
+            # If --restore param has been set
+            if args.restore != "null":
+                self.restore = args.restore if args.restore else ''
 
             # If --add-source param has been set
             # TODO
